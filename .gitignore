@@ -1,1 +1,8 @@
 /target
+/.idea/.gitignore
+/logs/backend.log.2026-04-08
+/logs/backend.log.2026-04-09
+/logs/backend.log.2026-04-10
+/.idea/ERP.iml
+/.idea/modules.xml
+/.idea/vcs.xml
