@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
 import Dashboard from '../views/Dashboard.vue'
+import PurchaseManagement from "../views/PurchaseManagement.vue";
+import Layout from '../components/Layout.vue'
 
 const routes = [
     {
@@ -19,10 +21,21 @@ const routes = [
         component: Register
     },
     {
-        path: '/dashboard',
-        name: 'Dashboard',
-        component: Dashboard,
-        meta: { requiresAuth: true }
+        path: '/',
+        component: Layout,
+        meta: { requiresAuth: true },
+        children: [
+            {
+                path: 'dashboard',
+                name: 'Dashboard',
+                component: Dashboard
+            },
+            {
+                path: 'purchase',
+                name: 'PurchaseManagement',
+                component: PurchaseManagement
+            }
+        ]
     }
 ]
 

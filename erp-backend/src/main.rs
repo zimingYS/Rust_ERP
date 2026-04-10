@@ -7,7 +7,7 @@ mod middleware;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
-use sea_orm::{ActiveModelTrait, EntityTrait, Set, QueryFilter, ColumnTrait, Database, Schema, ConnectionTrait,PaginatorTrait};
+use sea_orm::{EntityTrait, Database, Schema, ConnectionTrait, PaginatorTrait, ActiveModelTrait};
 use tower_http::cors::{Any, CorsLayer};
 use crate::state::AppState;
 use tracing_subscriber::{EnvFilter};
@@ -57,6 +57,12 @@ async fn main() {
     )).await;
     let _ = db.execute(builder.build(
         schema.create_table_from_entity(entities::items::Entity).if_not_exists()
+    )).await;
+    let _ = db.execute(builder.build(
+        schema.create_table_from_entity(entities::purchase_order::Entity).if_not_exists()
+    )).await;
+    let _ = db.execute(builder.build(
+        schema.create_table_from_entity(entities::purchase_order_item::Entity).if_not_exists()
     )).await;
 
     let role_count = RoleEntity::find().count(&db).await.unwrap_or(0);

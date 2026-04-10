@@ -1,10 +1,5 @@
 <template>
   <div style="padding: 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <h1>ERP 物料管理系统</h1>
-      <el-button @click="handleLogout">退出登录</el-button>
-    </div>
-
     <el-button type="primary" @click="openAddDialog" style="margin-bottom: 20px;">新增物料</el-button>
 
     <el-table :data="items" border style="width: 100%">

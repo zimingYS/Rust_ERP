@@ -1,5 +1,5 @@
 <template>
-  <div style="min-height: 100vh; display: flex; justify-content: center; align-items: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+  <div class="register-container">
     <div style="background: white; padding: 40px; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 400px;">
       <h2 style="text-align: center; color: #333; margin-bottom: 30px;">用户注册</h2>
 
@@ -146,6 +146,23 @@ const goToLogin = () => {
 </script>
 
 <style scoped>.el-input-number {
+  width: 100%;
+}
+</style>
+
+<style scoped>.register-container {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.el-input-number {
   width: 100%;
 }
 </style>

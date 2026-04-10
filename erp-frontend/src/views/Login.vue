@@ -1,9 +1,9 @@
 <template>
-  <div style="min-height: 100vh; display: flex; justify-content: center; align-items: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-    <div style="background: white; padding: 40px; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 400px;">
+  <div class="login-container">
+    <div class="login-box">
       <h2 style="text-align: center; color: #333; margin-bottom: 30px;">ERP 系统登录</h2>
 
-      <el-form :model="loginForm" :rules="rules" ref="loginFormRef" label-width="80px">
+      <el-form :model="loginForm" :rules="rules" ref="loginFormRef"  class="login-form">
         <el-form-item label="账号" prop="username">
           <el-input
               v-model="loginForm.username"
@@ -104,3 +104,38 @@ const goToRegister = () => {
   router.push('/register')
 }
 </script>
+
+<style scoped>
+.login-container {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.login-box {
+  background: white;
+  padding: 40px;
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  width: 400px;
+}
+
+.login-form {
+  padding: 0;
+}
+
+.login-form :deep(.el-form-item__content) {
+  display: flex;
+  justify-content: center;
+}
+
+.login-form :deep(.el-input) {
+  width: 100%;
+}
+</style>

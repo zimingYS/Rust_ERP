@@ -5,10 +5,9 @@ use axum::extract::State;
 use axum::response::IntoResponse;
 use axum::Json;
 use jsonwebtoken::signature::rand_core::OsRng;
-use jsonwebtoken::{encode, EncodingKey, Header};
 use password_hash::SaltString;
-use sea_orm::{ActiveModelTrait, EntityTrait, Set, QueryFilter, ColumnTrait, Order, QueryOrder};
-use serde::{Deserialize, Serialize};
+use sea_orm::{ActiveModelTrait, EntityTrait, Set, QueryFilter, ColumnTrait};
+use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
 use crate::auth;
@@ -162,7 +161,7 @@ pub async fn login(
         ).into_response();
     }
 
-    match auth::create_user_jwt(&user.username, user.role_id) {
+    match auth::create_user_jwt(&user.username, user.id, user.role_id) {
         Ok(token) => (
             axum::http::StatusCode::OK,
             Json(json!({"token": token}))

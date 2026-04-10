@@ -10,10 +10,14 @@ pub struct ErrorResponse {
     pub message: String,
 }
 
+#[derive(Debug)]
 pub enum AppError {
+    #[allow(dead_code)]
     Unauthorized,
     NotFound(String),
+    #[allow(dead_code)]
     BadRequest(String),
+    #[allow(dead_code)]
     InternalError(String),
     Database(sea_orm::DbErr),
 }

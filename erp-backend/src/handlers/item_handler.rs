@@ -28,10 +28,6 @@ pub async fn get_items(State(state): State<Arc<AppState>>) -> Result<Json<Vec<Mo
         .all(&state.db)
         .await?;
 
-    if items.is_empty() {
-        return Err(AppError::NotFound("暂无物品数据".to_string()));
-    }
-
     Ok(Json(items))
 }
 
@@ -39,7 +35,7 @@ pub async fn get_items(State(state): State<Arc<AppState>>) -> Result<Json<Vec<Mo
 pub async fn create_item(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<CreateItemRequest>,
-) -> (StatusCode, Json<Model>) {
+) -> Result<(StatusCode, Json<Model>), AppError> {
     let new_item = ActiveModel{
         name: Set(payload.name),
         sku: Set(payload.sku),
@@ -47,10 +43,9 @@ pub async fn create_item(
         ..Default::default()
     };
 
-    let inserted_item = new_item
-        .insert(&state.db).await.expect("无法插入到数据库！");
+    let inserted_item = new_item.insert(&state.db).await?;
 
-    (StatusCode::CREATED , Json(inserted_item))
+    Ok((StatusCode::CREATED, Json(inserted_item)))
 }
 
 // 删除物料
