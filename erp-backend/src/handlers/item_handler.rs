@@ -5,6 +5,7 @@ use axum::Json;
 use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set};
 use serde::Deserialize;
 use crate::entities::items::{ActiveModel, Column, Entity, Model};
+use crate::handlers::error::AppError;
 use crate::state::AppState;
 
 #[derive(Deserialize)]
@@ -21,13 +22,17 @@ pub struct UpdateItemRequest{
     stock: i32,
 }
 
-pub async fn get_items(State(state): State<Arc<AppState>>) -> Json<Vec<Model>> {
+pub async fn get_items(State(state): State<Arc<AppState>>) -> Result<Json<Vec<Model>>, AppError> {
     let items = Entity::find()
         .order_by_asc(Column::Id)
         .all(&state.db)
-        .await
-        .expect("查询数据库失败");
-    Json(items)
+        .await?;
+
+    if items.is_empty() {
+        return Err(AppError::NotFound("暂无物品数据".to_string()));
+    }
+
+    Ok(Json(items))
 }
 
 // 新增物料
@@ -52,17 +57,16 @@ pub async fn create_item(
 pub async fn delete_item(
     State(state): State<Arc<AppState>>,
     Path(id): Path<i32>,
-)-> StatusCode {
+)-> Result<StatusCode, AppError> {
     // 使用 SeaORM 内置删除
     let res = Entity::delete_by_id(id)
         .exec(&state.db)
-        .await
-        .expect("数据库删除失败");
+        .await?;
 
     if res.rows_affected > 0 {
-        StatusCode::NO_CONTENT // 204 成功但无内容返回
+        Ok(StatusCode::NO_CONTENT) // 204 成功但无内容返回
     } else {
-        StatusCode::NOT_FOUND // 404 ID 不存在
+        Err(AppError::NotFound(format!("找不到 ID 为 {} 的物料，无法删除", id))) // 404 ID 不存在
     }
 }
 
@@ -71,23 +75,17 @@ pub async fn update_item(
     State(state): State<Arc<AppState>>,
     Path(id): Path<i32>,
     Json(payload): Json<UpdateItemRequest>,
-) -> StatusCode {
-    let item = Entity::find_by_id(id).one(&state.db).await.expect("查询失败");
+) -> Result<StatusCode, AppError> {
+    let item = Entity::find_by_id(id)
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("ID 为 {} 的物料不存在", id)))?;
 
-    if let Some(item) = item {
-        let mut item: ActiveModel = item.into();
-        item.name = Set(payload.name);
-        item.sku = Set(payload.sku);
-        item.stock = Set(payload.stock);
+    let mut item: ActiveModel = item.into();
+    item.name = Set(payload.name);
+    item.sku = Set(payload.sku);
+    item.stock = Set(payload.stock);
 
-        match item.update(&state.db).await {
-            Ok(_) => StatusCode::OK,
-            Err(e) => {
-                eprintln!("更新数据库时出错: {:?}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            }
-        }
-    }else {
-        StatusCode::NOT_FOUND
-    }
+    item.update(&state.db).await?;
+    Ok(StatusCode::OK)
 }

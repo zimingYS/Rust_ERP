@@ -1,2 +1,8 @@
-pub mod items;
-// pub use items::Entity as Item;
+/*
+    *此部分为实体组件模块
+*/
+
+pub(crate) mod items;
+pub(crate) mod user;
+pub(crate) mod role;
+pub(crate) mod purchase_order;
