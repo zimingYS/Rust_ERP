@@ -25,6 +25,9 @@ pub fn create_router(state: Arc<AppState>) -> Router{
                get(purchase_handler::get_purchase_orders)
                    .post(purchase_handler::create_purchase_order)
         )
+        .route("/api/purchase-orders/stats",
+               get(purchase_handler::get_purchase_order_stats)
+        )
         .route("/api/purchase-orders/{id}",
                axum::routing::get(purchase_handler::get_purchase_order_with_items)
                    .put(purchase_handler::update_purchase_order)
@@ -33,10 +36,16 @@ pub fn create_router(state: Arc<AppState>) -> Router{
         .route("/api/purchase-orders/{id}/approve",
                post(purchase_handler::approve_purchase_order)
         )
-        
+        .route("/api/purchase-orders/{id}/cancel",
+               post(purchase_handler::cancel_purchase_order)
+        )
+
         .route("/api/sales-orders",
                get(sales_handler::get_sales_orders)
                    .post(sales_handler::create_sales_order)
+        )
+        .route("/api/sales-orders/stats",
+               get(sales_handler::get_sales_order_stats)
         )
         .route("/api/sales-orders/{id}",
                axum::routing::get(sales_handler::get_sales_order_with_items)
@@ -45,6 +54,12 @@ pub fn create_router(state: Arc<AppState>) -> Router{
         )
         .route("/api/sales-orders/{id}/confirm",
                post(sales_handler::confirm_sales_order)
+        )
+        .route("/api/sales-orders/{id}/complete",
+               post(sales_handler::complete_sales_order)
+        )
+        .route("/api/sales-orders/{id}/cancel",
+               post(sales_handler::cancel_sales_order)
         )
 
         .layer(middleware::from_fn(auth_middleware));

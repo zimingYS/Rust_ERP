@@ -23,7 +23,7 @@ pub async fn connect_db() -> DatabaseConnection {
 }
 
 pub async fn init_tables(db: &DatabaseConnection) {
-    use sea_orm::{Schema, DbBackend};
+    use sea_orm::Schema;
 
     println!("数据库建表中...");
     tracing::info!("数据库建表中...");

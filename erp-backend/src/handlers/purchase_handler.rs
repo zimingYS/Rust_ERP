@@ -2,17 +2,15 @@
     采购管理接口
 */
 use std::sync::Arc;
-use axum::extract::{Path, State, Extension};
+use axum::extract::{Path, Query, State, Extension};
 use axum::http::StatusCode;
 use axum::Json;
 use chrono::Local;
-use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set};
-use serde::Deserialize;
+use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait};
+use serde::{Deserialize, Serialize};
 use crate::entities::{purchase_order, purchase_order_item};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
-use sea_orm::QueryFilter;
-use sea_orm::ColumnTrait;
 use crate::auth::UserClaims;
 
 #[derive(Deserialize)]
@@ -38,15 +36,77 @@ pub struct UpdatePurchaseOrderRequest {
     pub items: Vec<PurchaseOrderItemRequest>,
 }
 
+#[derive(Deserialize)]
+pub struct PurchaseOrderQueryParams {
+    pub status: Option<String>,
+    pub supplier: Option<String>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct PurchaseOrderStats {
+    pub total_orders: u64,
+    pub pending_approval: u64,
+    pub approved: u64,
+    pub total_amount: f64,
+    pub this_month_amount: f64,
+}
+
 pub async fn get_purchase_orders(
-    State(state): State<Arc<AppState>>
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<PurchaseOrderQueryParams>,
 ) -> Result<Json<Vec<purchase_order::Model>>, AppError> {
-    let orders = purchase_order::Entity::find()
+    let mut query = purchase_order::Entity::find();
+
+    if let Some(status) = &params.status {
+        query = query.filter(purchase_order::Column::Status.eq(status));
+    }
+
+    if let Some(supplier) = &params.supplier {
+        query = query.filter(purchase_order::Column::Supplier.contains(supplier));
+    }
+
+    if let Some(start_date) = &params.start_date {
+        query = query.filter(purchase_order::Column::OrderDate.gte(start_date));
+    }
+
+    if let Some(end_date) = &params.end_date {
+        query = query.filter(purchase_order::Column::OrderDate.lte(end_date));
+    }
+
+    let orders = query
         .order_by_desc(purchase_order::Column::CreatedAt)
         .all(&state.db)
         .await?;
 
     Ok(Json(orders))
+}
+
+pub async fn get_purchase_order_stats(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<PurchaseOrderStats>, AppError> {
+    let all_orders = purchase_order::Entity::find().all(&state.db).await?;
+
+    let total_orders = all_orders.len() as u64;
+    let pending_approval = all_orders.iter().filter(|o| o.status == "待审批").count() as u64;
+    let approved = all_orders.iter().filter(|o| o.status == "已审批").count() as u64;
+    let total_amount: f64 = all_orders.iter().map(|o| o.total_amount).sum();
+
+    let now = Local::now();
+    let current_month = now.format("%Y-%m").to_string();
+    let this_month_amount: f64 = all_orders.iter()
+        .filter(|o| o.order_date.starts_with(&current_month))
+        .map(|o| o.total_amount)
+        .sum();
+
+    Ok(Json(PurchaseOrderStats {
+        total_orders,
+        pending_approval,
+        approved,
+        total_amount,
+        this_month_amount,
+    }))
 }
 
 pub async fn get_purchase_order_with_items(
@@ -71,6 +131,19 @@ pub async fn create_purchase_order(
     Extension(claims): Extension<UserClaims>,
     Json(payload): Json<CreatePurchaseOrderRequest>,
 ) -> Result<(StatusCode, Json<purchase_order::Model>), AppError> {
+    if payload.items.is_empty() {
+        return Err(AppError::BadRequest("订单项不能为空".to_string()));
+    }
+
+    for item in &payload.items {
+        if item.quantity <= 0 {
+            return Err(AppError::BadRequest(format!("物品 {} 的数量必须大于0", item.item_name)));
+        }
+        if item.unit_price < 0.0 {
+            return Err(AppError::BadRequest(format!("物品 {} 的单价不能为负数", item.item_name)));
+        }
+    }
+
     let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
     let order_number = format!("PO{}", Local::now().format("%Y%m%d%H%M%S"));
 
@@ -106,6 +179,7 @@ pub async fn create_purchase_order(
         order_item.insert(&state.db).await?;
     }
 
+    tracing::info!("创建采购订单成功: {}", inserted_order.order_number);
     Ok((StatusCode::CREATED, Json(inserted_order)))
 }
 
@@ -118,6 +192,23 @@ pub async fn update_purchase_order(
         .one(&state.db)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("采购订单 {} 不存在", id)))?;
+
+    if order.status == "已审批" {
+        return Err(AppError::BadRequest("已审批的订单不能修改".to_string()));
+    }
+
+    if payload.items.is_empty() {
+        return Err(AppError::BadRequest("订单项不能为空".to_string()));
+    }
+
+    for item in &payload.items {
+        if item.quantity <= 0 {
+            return Err(AppError::BadRequest(format!("物品 {} 的数量必须大于0", item.item_name)));
+        }
+        if item.unit_price < 0.0 {
+            return Err(AppError::BadRequest(format!("物品 {} 的单价不能为负数", item.item_name)));
+        }
+    }
 
     let mut order: purchase_order::ActiveModel = order.into();
 
@@ -151,6 +242,7 @@ pub async fn update_purchase_order(
         order_item.insert(&state.db).await?;
     }
 
+    tracing::info!("更新采购订单成功: ID={}", id);
     Ok(StatusCode::OK)
 }
 
@@ -158,6 +250,15 @@ pub async fn delete_purchase_order(
     State(state): State<Arc<AppState>>,
     Path(id): Path<i32>,
 ) -> Result<StatusCode, AppError> {
+    let order = purchase_order::Entity::find_by_id(id)
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("采购订单 {} 不存在", id)))?;
+
+    if order.status == "已审批" {
+        return Err(AppError::BadRequest("已审批的订单不能删除".to_string()));
+    }
+
     purchase_order_item::Entity::delete_many()
         .filter(purchase_order_item::Column::PurchaseOrderId.eq(id))
         .exec(&state.db)
@@ -168,6 +269,7 @@ pub async fn delete_purchase_order(
         .await?;
 
     if res.rows_affected > 0 {
+        tracing::info!("删除采购订单成功: ID={}", id);
         Ok(StatusCode::NO_CONTENT)
     } else {
         Err(AppError::NotFound(format!("采购订单 {} 不存在", id)))
@@ -183,10 +285,37 @@ pub async fn approve_purchase_order(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("采购订单 {} 不存在", id)))?;
 
+    if order.status != "待审批" {
+        return Err(AppError::BadRequest(format!("订单当前状态为 '{}', 无法审批", order.status)));
+    }
+
     let mut order: purchase_order::ActiveModel = order.into();
     order.status = Set("已审批".to_string());
     order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
 
     order.update(&state.db).await?;
+    tracing::info!("审批采购订单成功: ID={}", id);
+    Ok(StatusCode::OK)
+}
+
+pub async fn cancel_purchase_order(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<StatusCode, AppError> {
+    let order = purchase_order::Entity::find_by_id(id)
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("采购订单 {} 不存在", id)))?;
+
+    if order.status == "已审批" {
+        return Err(AppError::BadRequest("已审批的订单不能取消".to_string()));
+    }
+
+    let mut order: purchase_order::ActiveModel = order.into();
+    order.status = Set("已取消".to_string());
+    order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
+
+    order.update(&state.db).await?;
+    tracing::info!("取消采购订单成功: ID={}", id);
     Ok(StatusCode::OK)
 }

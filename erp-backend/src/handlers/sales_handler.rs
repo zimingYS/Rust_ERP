@@ -2,17 +2,15 @@
     销售管理接口
 */
 use std::sync::Arc;
-use axum::extract::{Path, State, Extension};
+use axum::extract::{Path, Query, State, Extension};
 use axum::http::StatusCode;
 use axum::Json;
 use chrono::Local;
-use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set};
-use serde::Deserialize;
+use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait};
+use serde::{Deserialize, Serialize};
 use crate::entities::{sales_order, sales_order_item};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
-use sea_orm::QueryFilter;
-use sea_orm::ColumnTrait;
 use crate::auth::UserClaims;
 
 #[derive(Deserialize)]
@@ -38,15 +36,77 @@ pub struct UpdateSalesOrderRequest {
     pub items: Vec<SalesOrderItemRequest>,
 }
 
+#[derive(Deserialize)]
+pub struct SalesOrderQueryParams {
+    pub status: Option<String>,
+    pub customer: Option<String>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct SalesOrderStats {
+    pub total_orders: u64,
+    pub pending_confirm: u64,
+    pub confirmed: u64,
+    pub total_amount: f64,
+    pub this_month_amount: f64,
+}
+
 pub async fn get_sales_orders(
-    State(state): State<Arc<AppState>>
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<SalesOrderQueryParams>,
 ) -> Result<Json<Vec<sales_order::Model>>, AppError> {
-    let orders = sales_order::Entity::find()
+    let mut query = sales_order::Entity::find();
+
+    if let Some(status) = &params.status {
+        query = query.filter(sales_order::Column::Status.eq(status));
+    }
+
+    if let Some(customer) = &params.customer {
+        query = query.filter(sales_order::Column::Customer.contains(customer));
+    }
+
+    if let Some(start_date) = &params.start_date {
+        query = query.filter(sales_order::Column::OrderDate.gte(start_date));
+    }
+
+    if let Some(end_date) = &params.end_date {
+        query = query.filter(sales_order::Column::OrderDate.lte(end_date));
+    }
+
+    let orders = query
         .order_by_desc(sales_order::Column::CreatedAt)
         .all(&state.db)
         .await?;
 
     Ok(Json(orders))
+}
+
+pub async fn get_sales_order_stats(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<SalesOrderStats>, AppError> {
+    let all_orders = sales_order::Entity::find().all(&state.db).await?;
+
+    let total_orders = all_orders.len() as u64;
+    let pending_confirm = all_orders.iter().filter(|o| o.status == "待确认").count() as u64;
+    let confirmed = all_orders.iter().filter(|o| o.status == "已确认").count() as u64;
+    let total_amount: f64 = all_orders.iter().map(|o| o.total_amount).sum();
+
+    let now = Local::now();
+    let current_month = now.format("%Y-%m").to_string();
+    let this_month_amount: f64 = all_orders.iter()
+        .filter(|o| o.order_date.starts_with(&current_month))
+        .map(|o| o.total_amount)
+        .sum();
+
+    Ok(Json(SalesOrderStats {
+        total_orders,
+        pending_confirm,
+        confirmed,
+        total_amount,
+        this_month_amount,
+    }))
 }
 
 pub async fn get_sales_order_with_items(
@@ -71,6 +131,19 @@ pub async fn create_sales_order(
     Extension(claims): Extension<UserClaims>,
     Json(payload): Json<CreateSalesOrderRequest>,
 ) -> Result<(StatusCode, Json<sales_order::Model>), AppError> {
+    if payload.items.is_empty() {
+        return Err(AppError::BadRequest("订单项不能为空".to_string()));
+    }
+
+    for item in &payload.items {
+        if item.quantity <= 0 {
+            return Err(AppError::BadRequest(format!("物品 {} 的数量必须大于0", item.item_name)));
+        }
+        if item.unit_price < 0.0 {
+            return Err(AppError::BadRequest(format!("物品 {} 的单价不能为负数", item.item_name)));
+        }
+    }
+
     let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
     let order_number = format!("SO{}", Local::now().format("%Y%m%d%H%M%S"));
 
@@ -106,6 +179,7 @@ pub async fn create_sales_order(
         order_item.insert(&state.db).await?;
     }
 
+    tracing::info!("创建销售订单成功: {}", inserted_order.order_number);
     Ok((StatusCode::CREATED, Json(inserted_order)))
 }
 
@@ -118,6 +192,23 @@ pub async fn update_sales_order(
         .one(&state.db)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", id)))?;
+
+    if order.status == "已确认" || order.status == "已完成" {
+        return Err(AppError::BadRequest("已确认或已完成的订单不能修改".to_string()));
+    }
+
+    if payload.items.is_empty() {
+        return Err(AppError::BadRequest("订单项不能为空".to_string()));
+    }
+
+    for item in &payload.items {
+        if item.quantity <= 0 {
+            return Err(AppError::BadRequest(format!("物品 {} 的数量必须大于0", item.item_name)));
+        }
+        if item.unit_price < 0.0 {
+            return Err(AppError::BadRequest(format!("物品 {} 的单价不能为负数", item.item_name)));
+        }
+    }
 
     let mut order: sales_order::ActiveModel = order.into();
 
@@ -151,6 +242,7 @@ pub async fn update_sales_order(
         order_item.insert(&state.db).await?;
     }
 
+    tracing::info!("更新销售订单成功: ID={}", id);
     Ok(StatusCode::OK)
 }
 
@@ -158,6 +250,15 @@ pub async fn delete_sales_order(
     State(state): State<Arc<AppState>>,
     Path(id): Path<i32>,
 ) -> Result<StatusCode, AppError> {
+    let order = sales_order::Entity::find_by_id(id)
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", id)))?;
+
+    if order.status == "已确认" || order.status == "已完成" {
+        return Err(AppError::BadRequest("已确认或已完成的订单不能删除".to_string()));
+    }
+
     sales_order_item::Entity::delete_many()
         .filter(sales_order_item::Column::SalesOrderId.eq(id))
         .exec(&state.db)
@@ -168,6 +269,7 @@ pub async fn delete_sales_order(
         .await?;
 
     if res.rows_affected > 0 {
+        tracing::info!("删除销售订单成功: ID={}", id);
         Ok(StatusCode::NO_CONTENT)
     } else {
         Err(AppError::NotFound(format!("销售订单 {} 不存在", id)))
@@ -183,10 +285,59 @@ pub async fn confirm_sales_order(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", id)))?;
 
+    if order.status != "待确认" {
+        return Err(AppError::BadRequest(format!("订单当前状态为 '{}', 无法确认", order.status)));
+    }
+
     let mut order: sales_order::ActiveModel = order.into();
     order.status = Set("已确认".to_string());
     order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
 
     order.update(&state.db).await?;
+    tracing::info!("确认销售订单成功: ID={}", id);
+    Ok(StatusCode::OK)
+}
+
+pub async fn complete_sales_order(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<StatusCode, AppError> {
+    let order = sales_order::Entity::find_by_id(id)
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", id)))?;
+
+    if order.status != "已确认" {
+        return Err(AppError::BadRequest(format!("订单当前状态为 '{}', 无法完成", order.status)));
+    }
+
+    let mut order: sales_order::ActiveModel = order.into();
+    order.status = Set("已完成".to_string());
+    order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
+
+    order.update(&state.db).await?;
+    tracing::info!("完成销售订单成功: ID={}", id);
+    Ok(StatusCode::OK)
+}
+
+pub async fn cancel_sales_order(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<StatusCode, AppError> {
+    let order = sales_order::Entity::find_by_id(id)
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", id)))?;
+
+    if order.status == "已确认" || order.status == "已完成" {
+        return Err(AppError::BadRequest("已确认或已完成的订单不能取消".to_string()));
+    }
+
+    let mut order: sales_order::ActiveModel = order.into();
+    order.status = Set("已取消".to_string());
+    order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
+
+    order.update(&state.db).await?;
+    tracing::info!("取消销售订单成功: ID={}", id);
     Ok(StatusCode::OK)
 }
