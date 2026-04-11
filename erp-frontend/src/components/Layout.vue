@@ -24,6 +24,11 @@
           <el-icon><ShoppingCart /></el-icon>
           <template #title>采购管理</template>
         </el-menu-item>
+
+        <el-menu-item index="/sales">
+          <el-icon><Sell /></el-icon>
+          <template #title>销售管理</template>
+        </el-menu-item>
       </el-menu>
     </el-aside>
 
@@ -73,6 +78,7 @@ import { useRouter, useRoute } from 'vue-router'
 import {
   HomeFilled,
   ShoppingCart,
+  Sell,
   Fold,
   Expand,
   User,
@@ -90,7 +96,8 @@ const activeMenu = computed(() => route.path)
 const pageTitle = computed(() => {
   const titles = {
     '/dashboard': '物料管理',
-    '/purchase': '采购管理'
+    '/purchase': '采购管理',
+    '/sales': '销售管理'
   }
   return titles[route.path] || 'ERP 系统'
 })

@@ -20,6 +20,7 @@ pub enum AppError {
     #[allow(dead_code)]
     InternalError(String),
     Database(sea_orm::DbErr),
+    Jwt(jsonwebtoken::errors::Error),
 }
 
 impl IntoResponse for AppError {
@@ -45,6 +46,10 @@ impl IntoResponse for AppError {
                 error!("内部错误: {}", msg);
                 (StatusCode::INTERNAL_SERVER_ERROR, msg.clone())
             },
+            AppError::Jwt(e) => {
+                error!("JWT错误: {:?}", e);
+                (StatusCode::UNAUTHORIZED, "令牌验证失败".to_string())
+            },
         };
         let body = Json(ErrorResponse {
             code: status.as_u16(),
@@ -57,5 +62,11 @@ impl IntoResponse for AppError {
 impl From<sea_orm::DbErr> for AppError {
     fn from(e: sea_orm::DbErr) -> Self {
         AppError::Database(e)
+    }
+}
+
+impl From<jsonwebtoken::errors::Error> for AppError {
+    fn from(e: jsonwebtoken::errors::Error) -> Self {
+        AppError::Jwt(e)
     }
 }
