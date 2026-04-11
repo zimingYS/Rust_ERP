@@ -1,11 +1,42 @@
-use axum::{middleware, routing::get, Router};
+use axum::routing::get;
+use axum::{middleware, Router};
 use std::sync::Arc;
 use axum::routing::post;
-use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler, finance_handler, audit_handler, report_handler};
-use crate::middleware::auth_middleware;
+use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler, finance_handler, audit_handler, report_handler, user_management_handler};
+use crate::middleware::{auth_middleware, require_admin_middleware};
 use crate::state::AppState;
 
 pub fn create_router(state: Arc<AppState>) -> Router{
+    // 管理员专属路由
+    let admin_routes = Router::new()
+        .route("/api/users",
+               get(user_management_handler::get_users)
+                   .post(user_management_handler::create_user)
+        )
+        .route("/api/users/roles",
+               get(user_management_handler::get_roles)
+        )
+        .route("/api/users/{id}",
+               axum::routing::get(user_management_handler::get_user_by_id)
+                   .put(user_management_handler::update_user)
+                   .delete(user_management_handler::delete_user)
+        )
+        .route("/api/users/{id}/change-password",
+               post(user_management_handler::change_password)
+        )
+        .route("/api/users/{id}/reset-password",
+               post(user_management_handler::reset_password)
+        )
+        .route("/api/audit/logs",
+               get(audit_handler::get_audit_logs)
+                   .post(audit_handler::create_audit_log)
+        )
+        .route("/api/audit/activity-summary",
+               get(audit_handler::get_user_activity_summary)
+        )
+        .layer(middleware::from_fn(require_admin_middleware));
+
+    // 普通用户可访问的路由
     let protected_routes = Router::new()
         .route("/api/items",
             get(item_handler::get_items)
@@ -42,7 +73,9 @@ pub fn create_router(state: Arc<AppState>) -> Router{
 
         .route("/api/finance/transactions",
                get(finance_handler::get_transactions)
-                   .post(finance_handler::create_transaction)
+        )
+        .route("/api/finance/transactions",
+               post(finance_handler::create_transaction)
         )
         .route("/api/finance/stats",
                get(finance_handler::get_financial_stats)
@@ -58,14 +91,6 @@ pub fn create_router(state: Arc<AppState>) -> Router{
         )
         .route("/api/finance/auto/sales/{order_id}",
                post(finance_handler::auto_create_sales_transaction)
-        )
-
-        .route("/api/audit/logs",
-               get(audit_handler::get_audit_logs)
-                   .post(audit_handler::create_audit_log)
-        )
-        .route("/api/audit/activity-summary",
-               get(audit_handler::get_user_activity_summary)
         )
 
         .route("/api/reports/export/purchase-orders",
@@ -86,7 +111,9 @@ pub fn create_router(state: Arc<AppState>) -> Router{
 
         .route("/api/purchase-orders",
                get(purchase_handler::get_purchase_orders)
-                   .post(purchase_handler::create_purchase_order)
+        )
+        .route("/api/purchase-orders",
+               post(purchase_handler::create_purchase_order)
         )
         .route("/api/purchase-orders/stats",
                get(purchase_handler::get_purchase_order_stats)
@@ -105,7 +132,9 @@ pub fn create_router(state: Arc<AppState>) -> Router{
 
         .route("/api/sales-orders",
                get(sales_handler::get_sales_orders)
-                   .post(sales_handler::create_sales_order)
+        )
+        .route("/api/sales-orders",
+               post(sales_handler::create_sales_order)
         )
         .route("/api/sales-orders/stats",
                get(sales_handler::get_sales_order_stats)
@@ -123,16 +152,13 @@ pub fn create_router(state: Arc<AppState>) -> Router{
         )
         .route("/api/sales-orders/{id}/cancel",
                post(sales_handler::cancel_sales_order)
-        )
-
-        .layer(middleware::from_fn(auth_middleware));
+        );
 
     Router::new()
         .route("/api/health", get(health::health_check))
-
         .route("/api/register", post(user_handler::register))
         .route("/api/login", post(user_handler::login))
-
-        .merge(protected_routes)
+        .merge(admin_routes.layer(middleware::from_fn(auth_middleware)))
+        .merge(protected_routes.layer(middleware::from_fn(auth_middleware)))
         .with_state(state)
 }

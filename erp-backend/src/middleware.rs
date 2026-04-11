@@ -1,27 +1,49 @@
 use axum::{
     extract::Request,
+    http::StatusCode,
     middleware::Next,
     response::Response,
-    http::{StatusCode, header},
 };
-use crate::auth::decode_user_jwt;
+use crate::auth::{UserClaims, JWT_SECRET};
+use crate::constants::ROLE_ADMIN;
 
 pub async fn auth_middleware(
-    mut req: Request,
+    req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    let auth_header = req.headers()
-        .get(header::AUTHORIZATION)
-        .and_then(|h| h.to_str().ok());
+    let auth_header = req
+        .headers()
+        .get("authorization")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "));
 
-    if let Some(auth_header) = auth_header {
-        let token = auth_header.trim_start_matches("Bearer ").trim();
+    let token = auth_header.ok_or(StatusCode::UNAUTHORIZED)?;
 
-        if let Ok(claims) = decode_user_jwt(token) {
-            req.extensions_mut().insert(claims);
-            return Ok(next.run(req).await);
-        }
+    use jsonwebtoken::{decode, DecodingKey, Validation};
+
+    let decoded = decode::<UserClaims>(
+        token,
+        &DecodingKey::from_secret(JWT_SECRET.as_ref()),
+        &Validation::default(),
+    )
+    .map_err(|_| StatusCode::UNAUTHORIZED)?;
+
+    let mut req = req;
+    req.extensions_mut().insert(decoded.claims);
+
+    Ok(next.run(req).await)
+}
+
+pub async fn require_admin_middleware(
+    req: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    let claims = req.extensions().get::<UserClaims>()
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    if claims.role_id != ROLE_ADMIN {
+        return Err(StatusCode::FORBIDDEN);
     }
 
-    Err(StatusCode::UNAUTHORIZED)
+    Ok(next.run(req).await)
 }

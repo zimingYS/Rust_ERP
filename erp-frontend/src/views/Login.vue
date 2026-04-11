@@ -85,6 +85,18 @@ const handleLogin = async () => {
         const res = await request.post('/api/login', loginData)
         if (res.token) {
           localStorage.setItem('erp_token', res.token)
+
+          // 解析 JWT token 获取角色信息
+          try {
+            const tokenParts = res.token.split('.')
+            if (tokenParts.length === 3) {
+              const payload = JSON.parse(atob(tokenParts[1]))
+              localStorage.setItem('user_role', payload.role_id.toString())
+            }
+          } catch (e) {
+            console.error('解析 token 失败', e)
+          }
+
           ElMessage.success('登录成功！')
           router.push('/dashboard')
         } else {

@@ -12,6 +12,10 @@ use crate::entities::financial_transaction;
 use crate::handlers::error::AppError;
 use crate::state::AppState;
 use crate::auth::UserClaims;
+use crate::constants::{
+    ORDER_STATUS_APPROVED,
+    SALES_ORDER_STATUS_COMPLETED,
+};
 
 #[derive(Deserialize)]
 pub struct TransactionQueryParams {
@@ -222,7 +226,7 @@ pub async fn auto_create_purchase_transaction(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("采购订单 {} 不存在", order_id)))?;
 
-    if order.status != "已审批" {
+    if order.status != ORDER_STATUS_APPROVED {
         return Err(AppError::BadRequest("只有已审批的采购订单才能生成财务记录".to_string()));
     }
 
@@ -268,7 +272,7 @@ pub async fn auto_create_sales_transaction(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", order_id)))?;
 
-    if order.status != "已完成" {
+    if order.status != SALES_ORDER_STATUS_COMPLETED {
         return Err(AppError::BadRequest("只有已完成的销售订单才能生成财务记录".to_string()));
     }
 

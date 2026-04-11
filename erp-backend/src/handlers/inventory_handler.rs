@@ -12,6 +12,13 @@ use crate::entities::{items, inventory_adjustment};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
 use crate::auth::UserClaims;
+use crate::constants::{
+    ADJUSTMENT_TYPE_INBOUND,
+    ADJUSTMENT_TYPE_OUTBOUND,
+    ADJUSTMENT_TYPE_COUNTING,
+    ADJUSTMENT_TYPE_LOSS,
+    ADJUSTMENT_TYPE_RETURN,
+};
 
 #[derive(Deserialize)]
 pub struct InventoryQueryParams {
@@ -46,6 +53,21 @@ pub struct InventoryStats {
     pub total_stock_value: u64,
 }
 
+fn build_inventory_item(item: &items::Model) -> InventoryItem {
+    let min_stock = item.min_stock.unwrap_or(0);
+    let is_low_stock = item.stock <= min_stock && item.stock > 0;
+
+    InventoryItem {
+        id: item.id,
+        name: item.name.clone(),
+        sku: item.sku.clone(),
+        stock: item.stock,
+        unit: item.unit.clone(),
+        min_stock: item.min_stock,
+        is_low_stock,
+    }
+}
+
 pub async fn get_inventory_list(
     State(state): State<Arc<AppState>>,
     Query(params): Query<InventoryQueryParams>,
@@ -62,20 +84,9 @@ pub async fn get_inventory_list(
 
     let all_items = query.all(&state.db).await?;
 
-    let inventory_items: Vec<InventoryItem> = all_items.iter().map(|item| {
-        let min_stock = item.min_stock.unwrap_or(0);
-        let is_low_stock = item.stock <= min_stock && item.stock > 0;
-
-        InventoryItem {
-            id: item.id,
-            name: item.name.clone(),
-            sku: item.sku.clone(),
-            stock: item.stock,
-            unit: item.unit.clone(),
-            min_stock: item.min_stock,
-            is_low_stock,
-        }
-    }).collect();
+    let inventory_items: Vec<InventoryItem> = all_items.iter()
+        .map(build_inventory_item)
+        .collect();
 
     let filtered_items: Vec<InventoryItem> = if params.low_stock_only == Some(true) {
         inventory_items.into_iter().filter(|item| item.is_low_stock || item.stock == 0).collect()
@@ -117,18 +128,7 @@ pub async fn get_item_inventory(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("物料 {} 不存在", id)))?;
 
-    let min_stock = item.min_stock.unwrap_or(0);
-    let is_low_stock = item.stock <= min_stock && item.stock > 0;
-
-    Ok(Json(InventoryItem {
-        id: item.id,
-        name: item.name.clone(),
-        sku: item.sku.clone(),
-        stock: item.stock,
-        unit: item.unit.clone(),
-        min_stock: item.min_stock,
-        is_low_stock,
-    }))
+    Ok(Json(build_inventory_item(&item)))
 }
 
 pub async fn adjust_stock(
@@ -146,15 +146,21 @@ pub async fn adjust_stock(
         return Err(AppError::BadRequest("调整数量必须大于0".to_string()));
     }
 
-    let valid_types = vec!["入库", "出库", "盘点调整", "损耗", "退货"];
+    let valid_types = vec![
+        ADJUSTMENT_TYPE_INBOUND,
+        ADJUSTMENT_TYPE_OUTBOUND,
+        ADJUSTMENT_TYPE_COUNTING,
+        ADJUSTMENT_TYPE_LOSS,
+        ADJUSTMENT_TYPE_RETURN,
+    ];
     if !valid_types.contains(&payload.adjustment_type.as_str()) {
         return Err(AppError::BadRequest(format!("无效的调整类型: {}", payload.adjustment_type)));
     }
 
     let before_stock = item.stock;
     let new_stock = match payload.adjustment_type.as_str() {
-        "入库" | "盘点调整" | "退货" => before_stock + payload.quantity,
-        "出库" | "损耗" => {
+        ADJUSTMENT_TYPE_INBOUND | ADJUSTMENT_TYPE_COUNTING | ADJUSTMENT_TYPE_RETURN => before_stock + payload.quantity,
+        ADJUSTMENT_TYPE_OUTBOUND | ADJUSTMENT_TYPE_LOSS => {
             if before_stock < payload.quantity {
                 return Err(AppError::BadRequest(format!(
                     "库存不足，当前库存: {}, 请求出库: {}",
@@ -194,18 +200,7 @@ pub async fn adjust_stock(
         id, adjustment_type, quantity, before_stock, new_stock
     );
 
-    let min_stock = updated_item.min_stock.unwrap_or(0);
-    let is_low_stock = updated_item.stock <= min_stock && updated_item.stock > 0;
-
-    Ok(Json(InventoryItem {
-        id: updated_item.id,
-        name: updated_item.name,
-        sku: updated_item.sku,
-        stock: updated_item.stock,
-        unit: updated_item.unit,
-        min_stock: updated_item.min_stock,
-        is_low_stock,
-    }))
+    Ok(Json(build_inventory_item(&updated_item)))
 }
 
 pub async fn get_adjustment_history(

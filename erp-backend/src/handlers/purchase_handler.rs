@@ -12,6 +12,12 @@ use crate::entities::{purchase_order, purchase_order_item};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
 use crate::auth::UserClaims;
+use crate::constants::{
+    ORDER_STATUS_PENDING_APPROVAL,
+    ORDER_STATUS_APPROVED,
+    ORDER_STATUS_CANCELLED,
+    PURCHASE_ORDER_PREFIX,
+};
 
 #[derive(Deserialize)]
 pub struct CreatePurchaseOrderRequest{
@@ -89,8 +95,8 @@ pub async fn get_purchase_order_stats(
     let all_orders = purchase_order::Entity::find().all(&state.db).await?;
 
     let total_orders = all_orders.len() as u64;
-    let pending_approval = all_orders.iter().filter(|o| o.status == "待审批").count() as u64;
-    let approved = all_orders.iter().filter(|o| o.status == "已审批").count() as u64;
+    let pending_approval = all_orders.iter().filter(|o| o.status == ORDER_STATUS_PENDING_APPROVAL).count() as u64;
+    let approved = all_orders.iter().filter(|o| o.status == ORDER_STATUS_APPROVED).count() as u64;
     let total_amount: f64 = all_orders.iter().map(|o| o.total_amount).sum();
 
     let now = Local::now();
@@ -145,7 +151,7 @@ pub async fn create_purchase_order(
     }
 
     let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-    let order_number = format!("PO{}", Local::now().format("%Y%m%d%H%M%S"));
+    let order_number = format!("{}{}", PURCHASE_ORDER_PREFIX, Local::now().format("%Y%m%d%H%M%S"));
 
     let total_amount: f64 = payload.items.iter()
         .map(|item| item.quantity as f64 * item.unit_price)
@@ -156,7 +162,7 @@ pub async fn create_purchase_order(
         supplier: Set(payload.supplier),
         order_date: Set(now.clone()),
         expected_delivery_date: Set(payload.expected_delivery_date),
-        status: Set("待审批".to_string()),
+        status: Set(ORDER_STATUS_PENDING_APPROVAL.to_string()),
         total_amount: Set(total_amount),
         created_by: Set(claims.user_id),
         created_at: Set(now.clone()),
@@ -193,7 +199,7 @@ pub async fn update_purchase_order(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("采购订单 {} 不存在", id)))?;
 
-    if order.status == "已审批" {
+    if order.status == ORDER_STATUS_APPROVED {
         return Err(AppError::BadRequest("已审批的订单不能修改".to_string()));
     }
 
@@ -255,7 +261,7 @@ pub async fn delete_purchase_order(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("采购订单 {} 不存在", id)))?;
 
-    if order.status == "已审批" {
+    if order.status == ORDER_STATUS_APPROVED {
         return Err(AppError::BadRequest("已审批的订单不能删除".to_string()));
     }
 
@@ -285,12 +291,12 @@ pub async fn approve_purchase_order(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("采购订单 {} 不存在", id)))?;
 
-    if order.status != "待审批" {
+    if order.status != ORDER_STATUS_PENDING_APPROVAL {
         return Err(AppError::BadRequest(format!("订单当前状态为 '{}', 无法审批", order.status)));
     }
 
     let mut order: purchase_order::ActiveModel = order.into();
-    order.status = Set("已审批".to_string());
+    order.status = Set(ORDER_STATUS_APPROVED.to_string());
     order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
 
     order.update(&state.db).await?;
@@ -307,12 +313,12 @@ pub async fn cancel_purchase_order(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("采购订单 {} 不存在", id)))?;
 
-    if order.status == "已审批" {
+    if order.status == ORDER_STATUS_APPROVED {
         return Err(AppError::BadRequest("已审批的订单不能取消".to_string()));
     }
 
     let mut order: purchase_order::ActiveModel = order.into();
-    order.status = Set("已取消".to_string());
+    order.status = Set(ORDER_STATUS_CANCELLED.to_string());
     order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
 
     order.update(&state.db).await?;

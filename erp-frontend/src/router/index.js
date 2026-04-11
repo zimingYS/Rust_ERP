@@ -8,6 +8,7 @@ import InventoryManagement from "../views/InventoryManagement.vue";
 import FinanceManagement from "../views/FinanceManagement.vue";
 import AuditLog from "../views/AuditLog.vue";
 import ReportExport from "../views/ReportExport.vue";
+import UserManagement from "../views/UserManagement.vue";
 import Layout from '../components/Layout.vue'
 
 const routes = [
@@ -58,12 +59,19 @@ const routes = [
             {
                 path: 'audit',
                 name: 'AuditLog',
-                component: AuditLog
+                component: AuditLog,
+                meta: { requiresAdmin: true }
             },
             {
                 path: 'reports',
                 name: 'ReportExport',
                 component: ReportExport
+            },
+            {
+                path: 'users',
+                name: 'UserManagement',
+                component: UserManagement,
+                meta: { requiresAdmin: true }
             }
         ]
     }
@@ -77,9 +85,16 @@ const router = createRouter({
 // 路由守卫
 router.beforeEach((to, from, next) => {
     const token = localStorage.getItem('erp_token')
+    const userRole = parseInt(localStorage.getItem('user_role') || '2')
 
     if (to.meta.requiresAuth && !token) {
         next('/login')
+    } else if (to.meta.requiresAdmin && userRole !== 1) {
+        // 需要管理员权限但用户不是管理员
+        import('element-plus').then(({ ElMessage }) => {
+            ElMessage.error('您没有权限访问此页面')
+        })
+        next('/dashboard')
     } else if ((to.path === '/login' || to.path === '/register') && token) {
         next('/dashboard')
     } else {

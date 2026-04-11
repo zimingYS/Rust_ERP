@@ -1,36 +1,34 @@
-use chrono::Utc;
-use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+pub(crate) const JWT_SECRET: &str = "your-secret-key";
+const TOKEN_EXPIRATION_SECONDS: usize = 86400;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserClaims {
-    pub sub: String,
     pub user_id: i32,
+    pub username: String,
     pub role_id: i32,
     pub exp: usize,
 }
 
-const JWT_SECRET:&[u8]=b"secret";
-pub fn create_user_jwt(username: &str, user_id: i32, role_id: i32) -> Result<String, jsonwebtoken::errors::Error> {
-    let expiration = Utc::now()
-        .checked_add_signed(chrono::Duration::hours(24))
-        .expect("valid timestamp")
-        .timestamp() as usize;
+pub fn create_token(user_id: i32, username: String, role_id: i32) -> Result<String, jsonwebtoken::errors::Error> {
+    let expiration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as usize + TOKEN_EXPIRATION_SECONDS;
 
     let claims = UserClaims {
-        sub: username.to_owned(),
         user_id,
+        username,
         role_id,
         exp: expiration,
     };
 
-    encode(&Header::default(), &claims, &EncodingKey::from_secret(JWT_SECRET))
-}
-
-pub fn decode_user_jwt(token: &str) -> Result<UserClaims, jsonwebtoken::errors::Error> {
-    decode::<UserClaims>(
-        token,
-        &DecodingKey::from_secret(JWT_SECRET),
-        &Validation::new(Algorithm::HS256),
-    ).map(|data| data.claims)
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(JWT_SECRET.as_ref()),
+    )
 }

@@ -12,6 +12,13 @@ use crate::entities::{sales_order, sales_order_item};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
 use crate::auth::UserClaims;
+use crate::constants::{
+    SALES_ORDER_STATUS_PENDING_CONFIRM,
+    SALES_ORDER_STATUS_CONFIRMED,
+    SALES_ORDER_STATUS_COMPLETED,
+    ORDER_STATUS_CANCELLED,
+    SALES_ORDER_PREFIX,
+};
 
 #[derive(Deserialize)]
 pub struct CreateSalesOrderRequest{
@@ -89,8 +96,8 @@ pub async fn get_sales_order_stats(
     let all_orders = sales_order::Entity::find().all(&state.db).await?;
 
     let total_orders = all_orders.len() as u64;
-    let pending_confirm = all_orders.iter().filter(|o| o.status == "待确认").count() as u64;
-    let confirmed = all_orders.iter().filter(|o| o.status == "已确认").count() as u64;
+    let pending_confirm = all_orders.iter().filter(|o| o.status == SALES_ORDER_STATUS_PENDING_CONFIRM).count() as u64;
+    let confirmed = all_orders.iter().filter(|o| o.status == SALES_ORDER_STATUS_CONFIRMED).count() as u64;
     let total_amount: f64 = all_orders.iter().map(|o| o.total_amount).sum();
 
     let now = Local::now();
@@ -145,7 +152,7 @@ pub async fn create_sales_order(
     }
 
     let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-    let order_number = format!("SO{}", Local::now().format("%Y%m%d%H%M%S"));
+    let order_number = format!("{}{}", SALES_ORDER_PREFIX, Local::now().format("%Y%m%d%H%M%S"));
 
     let total_amount: f64 = payload.items.iter()
         .map(|item| item.quantity as f64 * item.unit_price)
@@ -156,7 +163,7 @@ pub async fn create_sales_order(
         customer: Set(payload.customer),
         order_date: Set(now.clone()),
         delivery_date: Set(payload.delivery_date),
-        status: Set("待确认".to_string()),
+        status: Set(SALES_ORDER_STATUS_PENDING_CONFIRM.to_string()),
         total_amount: Set(total_amount),
         created_by: Set(claims.user_id),
         created_at: Set(now.clone()),
@@ -193,7 +200,7 @@ pub async fn update_sales_order(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", id)))?;
 
-    if order.status == "已确认" || order.status == "已完成" {
+    if order.status == SALES_ORDER_STATUS_CONFIRMED || order.status == SALES_ORDER_STATUS_COMPLETED {
         return Err(AppError::BadRequest("已确认或已完成的订单不能修改".to_string()));
     }
 
@@ -255,7 +262,7 @@ pub async fn delete_sales_order(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", id)))?;
 
-    if order.status == "已确认" || order.status == "已完成" {
+    if order.status == SALES_ORDER_STATUS_CONFIRMED || order.status == SALES_ORDER_STATUS_COMPLETED {
         return Err(AppError::BadRequest("已确认或已完成的订单不能删除".to_string()));
     }
 
@@ -285,12 +292,12 @@ pub async fn confirm_sales_order(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", id)))?;
 
-    if order.status != "待确认" {
+    if order.status != SALES_ORDER_STATUS_PENDING_CONFIRM {
         return Err(AppError::BadRequest(format!("订单当前状态为 '{}', 无法确认", order.status)));
     }
 
     let mut order: sales_order::ActiveModel = order.into();
-    order.status = Set("已确认".to_string());
+    order.status = Set(SALES_ORDER_STATUS_CONFIRMED.to_string());
     order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
 
     order.update(&state.db).await?;
@@ -307,12 +314,12 @@ pub async fn complete_sales_order(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", id)))?;
 
-    if order.status != "已确认" {
+    if order.status != SALES_ORDER_STATUS_CONFIRMED {
         return Err(AppError::BadRequest(format!("订单当前状态为 '{}', 无法完成", order.status)));
     }
 
     let mut order: sales_order::ActiveModel = order.into();
-    order.status = Set("已完成".to_string());
+    order.status = Set(SALES_ORDER_STATUS_COMPLETED.to_string());
     order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
 
     order.update(&state.db).await?;
@@ -329,12 +336,12 @@ pub async fn cancel_sales_order(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", id)))?;
 
-    if order.status == "已确认" || order.status == "已完成" {
+    if order.status == SALES_ORDER_STATUS_CONFIRMED || order.status == SALES_ORDER_STATUS_COMPLETED {
         return Err(AppError::BadRequest("已确认或已完成的订单不能取消".to_string()));
     }
 
     let mut order: sales_order::ActiveModel = order.into();
-    order.status = Set("已取消".to_string());
+    order.status = Set(ORDER_STATUS_CANCELLED.to_string());
     order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
 
     order.update(&state.db).await?;

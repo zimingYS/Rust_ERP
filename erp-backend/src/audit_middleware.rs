@@ -8,6 +8,7 @@ use chrono::Local;
 use sea_orm::{ActiveModelTrait, Set};
 use crate::entities::audit_log;
 use crate::state::AppState;
+use crate::auth::UserClaims;
 
 pub async fn audit_logger_middleware(
     State(state): State<Arc<AppState>>,
@@ -27,6 +28,18 @@ pub async fn audit_logger_middleware(
         .and_then(|h| h.to_str().ok())
         .map(|s| s.to_string());
 
+    let user_info = headers.get("authorization")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .and_then(|token| {
+            use jsonwebtoken::{decode, DecodingKey, Validation};
+            decode::<UserClaims>(
+                token,
+                &DecodingKey::from_secret(crate::auth::JWT_SECRET.as_ref()),
+                &Validation::default(),
+            ).ok().map(|decoded| (decoded.claims.user_id, decoded.claims.username))
+        });
+
     let response = next.run(req).await;
 
     let status = response.status().as_u16() as i32;
@@ -34,15 +47,15 @@ pub async fn audit_logger_middleware(
     if path.starts_with("/api/") && !path.contains("/health") {
         let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
-        let (user_id, username) = extract_user_from_path(&path);
+        let (user_id, username) = user_info.unwrap_or((0, "anonymous".to_string()));
 
         let module = determine_module(&path);
         let action = determine_action(&method, &path);
         let description = generate_description(&action, &module, &path);
 
         let new_log = audit_log::ActiveModel {
-            user_id: Set(user_id.unwrap_or(0)),
-            username: Set(username.unwrap_or_else(|| "anonymous".to_string())),
+            user_id: Set(user_id),
+            username: Set(username),
             action: Set(action),
             module: Set(module),
             method: Set(method),
@@ -63,16 +76,6 @@ pub async fn audit_logger_middleware(
     }
 
     response
-}
-
-fn extract_user_from_path(path: &str) -> (Option<i32>, Option<String>) {
-    if path.contains("/purchase-orders") ||
-       path.contains("/sales-orders") ||
-       path.contains("/inventory") ||
-       path.contains("/finance") {
-        return (Some(1), Some("admin".to_string()));
-    }
-    (None, None)
 }
 
 fn determine_module(path: &str) -> String {

@@ -99,7 +99,7 @@ pub async fn login(
         return Err(AppError::Unauthorized);
     }
 
-    let token = auth::create_user_jwt(&user.username, user.id, user.role_id)
+    let token = auth::create_token(user.id, user.username.clone(), user.role_id)
         .map_err(|e| AppError::InternalError(format!("令牌生成失败: {}", e)))?;
 
     Ok((

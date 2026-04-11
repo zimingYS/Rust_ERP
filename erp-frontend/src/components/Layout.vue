@@ -40,14 +40,20 @@
           <template #title>财务管理</template>
         </el-menu-item>
 
-        <el-menu-item index="/audit">
+        <el-menu-item index="/reports">
+          <el-icon><DataAnalysis /></el-icon>
+          <template #title>报表导出</template>
+        </el-menu-item>
+
+        <!-- 仅管理员可见 -->
+        <el-menu-item v-if="isAdmin" index="/audit">
           <el-icon><Notebook /></el-icon>
           <template #title>日志审计</template>
         </el-menu-item>
 
-        <el-menu-item index="/reports">
-          <el-icon><DataAnalysis /></el-icon>
-          <template #title>报表导出</template>
+        <el-menu-item v-if="isAdmin" index="/users">
+          <el-icon><User /></el-icon>
+          <template #title>用户管理</template>
         </el-menu-item>
       </el-menu>
     </el-aside>
@@ -103,9 +109,9 @@ import {
   Coin,
   Notebook,
   DataAnalysis,
+  User,
   Fold,
   Expand,
-  User,
   ArrowDown,
   SwitchButton
 } from '@element-plus/icons-vue'
@@ -114,6 +120,10 @@ import { ElMessageBox } from 'element-plus'
 const router = useRouter()
 const route = useRoute()
 const isCollapse = ref(false)
+
+// 从 localStorage 获取用户角色
+const userRole = ref(parseInt(localStorage.getItem('user_role') || '2'))
+const isAdmin = computed(() => userRole.value === 1)
 
 const activeMenu = computed(() => route.path)
 
@@ -125,7 +135,8 @@ const pageTitle = computed(() => {
     '/inventory': '库存管理',
     '/finance': '财务管理',
     '/audit': '日志审计',
-    '/reports': '报表导出'
+    '/reports': '报表导出',
+    '/users': '用户管理'
   }
   return titles[route.path] || 'ERP 系统'
 })
@@ -142,6 +153,7 @@ const handleCommand = (command) => {
       type: 'warning'
     }).then(() => {
       localStorage.removeItem('erp_token')
+      localStorage.removeItem('user_role')
       router.push('/login')
     }).catch(() => {})
   }

@@ -29,7 +29,7 @@ pub struct UpdateItemRequest {
 }
 
 #[derive(Deserialize)]
-pub struct StockAdjustmentRequest {
+pub struct ItemStockAdjustmentRequest {
     pub adjustment: i32,
     pub reason: Option<String>,
 }
@@ -215,7 +215,7 @@ pub async fn delete_item(
 pub async fn adjust_stock(
     State(state): State<Arc<AppState>>,
     Path(id): Path<i32>,
-    Json(payload): Json<StockAdjustmentRequest>,
+    Json(payload): Json<ItemStockAdjustmentRequest>,
 ) -> Result<Json<ItemResponse>, AppError> {
     let item = Entity::find_by_id(id)
         .one(&state.db)
