@@ -5,6 +5,8 @@ import Dashboard from '../views/Dashboard.vue'
 import PurchaseManagement from "../views/PurchaseManagement.vue";
 import SalesManagement from "../views/SalesManagement.vue";
 import InventoryManagement from "../views/InventoryManagement.vue";
+import FinanceManagement from "../views/FinanceManagement.vue";
+import AuditLog from "../views/AuditLog.vue";
 import Layout from '../components/Layout.vue'
 
 const routes = [
@@ -46,6 +48,16 @@ const routes = [
                 path: 'inventory',
                 name: 'InventoryManagement',
                 component: InventoryManagement
+            },
+            {
+                path: 'finance',
+                name: 'FinanceManagement',
+                component: FinanceManagement
+            },
+            {
+                path: 'audit',
+                name: 'AuditLog',
+                component: AuditLog
             }
         ]
     }

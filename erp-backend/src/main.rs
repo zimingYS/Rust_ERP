@@ -5,6 +5,7 @@ mod handlers;
 mod auth;
 mod middleware;
 mod database;
+mod audit_middleware;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -37,7 +38,12 @@ async fn main() {
     let cors = CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any);
 
     // 加载路由
-    let app = routes::create_router(state).layer(cors);
+    let app = routes::create_router(state.clone())
+        .layer(cors)
+        .layer(axum::middleware::from_fn_with_state(
+            state,
+            audit_middleware::audit_logger_middleware
+        ));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     println!("Server running at http://{}", addr);

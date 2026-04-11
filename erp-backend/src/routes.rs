@@ -1,7 +1,7 @@
 use axum::{middleware, routing::get, Router};
 use std::sync::Arc;
 use axum::routing::post;
-use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler};
+use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler, finance_handler, audit_handler};
 use crate::middleware::auth_middleware;
 use crate::state::AppState;
 
@@ -38,6 +38,34 @@ pub fn create_router(state: Arc<AppState>) -> Router{
         )
         .route("/api/inventory/batch-adjust",
                post(inventory_handler::batch_adjust_stock)
+        )
+
+        .route("/api/finance/transactions",
+               get(finance_handler::get_transactions)
+                   .post(finance_handler::create_transaction)
+        )
+        .route("/api/finance/stats",
+               get(finance_handler::get_financial_stats)
+        )
+        .route("/api/finance/category-summary/{transaction_type}",
+               get(finance_handler::get_category_summary)
+        )
+        .route("/api/finance/transactions/{id}",
+               axum::routing::delete(finance_handler::delete_transaction)
+        )
+        .route("/api/finance/auto/purchase/{order_id}",
+               post(finance_handler::auto_create_purchase_transaction)
+        )
+        .route("/api/finance/auto/sales/{order_id}",
+               post(finance_handler::auto_create_sales_transaction)
+        )
+
+        .route("/api/audit/logs",
+               get(audit_handler::get_audit_logs)
+                   .post(audit_handler::create_audit_log)
+        )
+        .route("/api/audit/activity-summary",
+               get(audit_handler::get_user_activity_summary)
         )
 
         .route("/api/purchase-orders",
