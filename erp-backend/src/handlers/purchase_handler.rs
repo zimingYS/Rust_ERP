@@ -18,6 +18,7 @@ use crate::constants::{
     ORDER_STATUS_CANCELLED,
     PURCHASE_ORDER_PREFIX,
 };
+use crate::permissions::can_approve;
 
 #[derive(Deserialize)]
 pub struct CreatePurchaseOrderRequest{
@@ -284,8 +285,13 @@ pub async fn delete_purchase_order(
 
 pub async fn approve_purchase_order(
     State(state): State<Arc<AppState>>,
+    Extension(claims): Extension<UserClaims>,
     Path(id): Path<i32>,
 ) -> Result<StatusCode, AppError> {
+    if !can_approve(claims.role_id) {
+        return Err(AppError::Forbidden("您没有审批权限".to_string()));
+    }
+
     let order = purchase_order::Entity::find_by_id(id)
         .one(&state.db)
         .await?
@@ -300,14 +306,19 @@ pub async fn approve_purchase_order(
     order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
 
     order.update(&state.db).await?;
-    tracing::info!("审批采购订单成功: ID={}", id);
+    tracing::info!("审批采购订单成功: ID={}, 审批人: {}", id, claims.username);
     Ok(StatusCode::OK)
 }
 
 pub async fn cancel_purchase_order(
     State(state): State<Arc<AppState>>,
+    Extension(claims): Extension<UserClaims>,
     Path(id): Path<i32>,
 ) -> Result<StatusCode, AppError> {
+    if !can_approve(claims.role_id) {
+        return Err(AppError::Forbidden("您没有取消订单权限".to_string()));
+    }
+
     let order = purchase_order::Entity::find_by_id(id)
         .one(&state.db)
         .await?
@@ -322,6 +333,6 @@ pub async fn cancel_purchase_order(
     order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
 
     order.update(&state.db).await?;
-    tracing::info!("取消采购订单成功: ID={}", id);
+    tracing::info!("取消采购订单成功: ID={}, 操作人: {}", id, claims.username);
     Ok(StatusCode::OK)
 }

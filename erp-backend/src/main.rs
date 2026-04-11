@@ -7,6 +7,7 @@ mod middleware;
 mod database;
 mod audit_middleware;
 mod constants;
+mod permissions;
 
 use std::net::SocketAddr;
 use std::sync::Arc;

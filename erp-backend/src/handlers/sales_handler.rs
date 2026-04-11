@@ -19,6 +19,7 @@ use crate::constants::{
     ORDER_STATUS_CANCELLED,
     SALES_ORDER_PREFIX,
 };
+use crate::permissions::can_approve;
 
 #[derive(Deserialize)]
 pub struct CreateSalesOrderRequest{
@@ -285,8 +286,13 @@ pub async fn delete_sales_order(
 
 pub async fn confirm_sales_order(
     State(state): State<Arc<AppState>>,
+    Extension(claims): Extension<UserClaims>,
     Path(id): Path<i32>,
 ) -> Result<StatusCode, AppError> {
+    if !can_approve(claims.role_id) {
+        return Err(AppError::Forbidden("您没有确认订单权限".to_string()));
+    }
+
     let order = sales_order::Entity::find_by_id(id)
         .one(&state.db)
         .await?
@@ -301,14 +307,19 @@ pub async fn confirm_sales_order(
     order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
 
     order.update(&state.db).await?;
-    tracing::info!("确认销售订单成功: ID={}", id);
+    tracing::info!("确认销售订单成功: ID={}, 确认人: {}", id, claims.username);
     Ok(StatusCode::OK)
 }
 
 pub async fn complete_sales_order(
     State(state): State<Arc<AppState>>,
+    Extension(claims): Extension<UserClaims>,
     Path(id): Path<i32>,
 ) -> Result<StatusCode, AppError> {
+    if !can_approve(claims.role_id) {
+        return Err(AppError::Forbidden("您没有完成订单权限".to_string()));
+    }
+
     let order = sales_order::Entity::find_by_id(id)
         .one(&state.db)
         .await?
@@ -323,14 +334,19 @@ pub async fn complete_sales_order(
     order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
 
     order.update(&state.db).await?;
-    tracing::info!("完成销售订单成功: ID={}", id);
+    tracing::info!("完成销售订单成功: ID={}, 操作人: {}", id, claims.username);
     Ok(StatusCode::OK)
 }
 
 pub async fn cancel_sales_order(
     State(state): State<Arc<AppState>>,
+    Extension(claims): Extension<UserClaims>,
     Path(id): Path<i32>,
 ) -> Result<StatusCode, AppError> {
+    if !can_approve(claims.role_id) {
+        return Err(AppError::Forbidden("您没有取消订单权限".to_string()));
+    }
+
     let order = sales_order::Entity::find_by_id(id)
         .one(&state.db)
         .await?
@@ -345,6 +361,6 @@ pub async fn cancel_sales_order(
     order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
 
     order.update(&state.db).await?;
-    tracing::info!("取消销售订单成功: ID={}", id);
+    tracing::info!("取消销售订单成功: ID={}, 操作人: {}", id, claims.username);
     Ok(StatusCode::OK)
 }

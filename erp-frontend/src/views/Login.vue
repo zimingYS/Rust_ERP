@@ -86,12 +86,12 @@ const handleLogin = async () => {
         if (res.token) {
           localStorage.setItem('erp_token', res.token)
 
-          // 解析 JWT token 获取角色信息
           try {
             const tokenParts = res.token.split('.')
             if (tokenParts.length === 3) {
               const payload = JSON.parse(atob(tokenParts[1]))
               localStorage.setItem('user_role', payload.role_id.toString())
+              localStorage.setItem('username', payload.username)
             }
           } catch (e) {
             console.error('解析 token 失败', e)
@@ -103,7 +103,6 @@ const handleLogin = async () => {
           ElMessage.error('登录失败：未获取到令牌')
         }
       } catch (error) {
-        // 错误已在拦截器中处理，不需要额外操作
         console.log('登录失败，错误已在拦截器中显示')
       } finally {
         loading.value = false

@@ -119,7 +119,7 @@
               编辑
             </el-button>
             <el-button
-                v-if="scope.row.status === '待确认'"
+                v-if="scope.row.status === '待确认' && hasApprovePermission"
                 type="success"
                 size="small"
                 @click="handleConfirm(scope.row.id)"
@@ -127,7 +127,7 @@
               确认
             </el-button>
             <el-button
-                v-if="scope.row.status === '已确认'"
+                v-if="scope.row.status === '已确认' && hasApprovePermission"
                 type="primary"
                 size="small"
                 @click="handleComplete(scope.row.id)"
@@ -135,7 +135,7 @@
               完成
             </el-button>
             <el-button
-                v-if="scope.row.status === '待确认'"
+                v-if="scope.row.status === '待确认' && hasApprovePermission"
                 type="warning"
                 size="small"
                 @click="handleCancel(scope.row.id)"
@@ -302,6 +302,9 @@ const isEdit = ref(false)
 const currentId = ref(null)
 const currentOrder = ref(null)
 const currentOrderItems = ref([])
+
+const userRole = ref(parseInt(localStorage.getItem('user_role') || '3'))
+const hasApprovePermission = computed(() => userRole.value === 1 || userRole.value === 2)
 
 const stats = ref({
   total_orders: 0,

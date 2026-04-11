@@ -8,8 +8,7 @@ pub enum AppError {
     DbError(DbErr),
     AuthError(String),
     Unauthorized,
-    #[allow(dead_code)]
-    Forbidden,
+    Forbidden(String),
     NotFound(String),
     BadRequest(String),
     InternalError(String),
@@ -33,9 +32,9 @@ impl IntoResponse for AppError {
                 tracing::warn!("未授权访问");
                 (StatusCode::UNAUTHORIZED, "未授权访问".to_string())
             },
-            AppError::Forbidden => {
-                tracing::warn!("禁止访问");
-                (StatusCode::FORBIDDEN, "您没有权限执行此操作".to_string())
+            AppError::Forbidden(msg) => {
+                tracing::warn!("禁止访问: {}", msg);
+                (StatusCode::FORBIDDEN, msg)
             },
             AppError::NotFound(msg) => {
                 tracing::warn!("资源不存在: {}", msg);

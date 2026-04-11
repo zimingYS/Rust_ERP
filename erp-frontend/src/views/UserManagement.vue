@@ -1,24 +1,10 @@
 <template>
   <div style="padding: 20px;">
-    <!-- 统计卡片 -->
     <el-row :gutter="20" style="margin-bottom: 20px;">
       <el-col :span="8">
         <el-card shadow="hover">
           <div class="stat-card">
-            <div class="stat-icon" style="background-color: #409eff;">
-              <el-icon :size="30"><User /></el-icon>
-            </div>
-            <div class="stat-content">
-              <div class="stat-value">{{ stats.total_users }}</div>
-              <div class="stat-label">用户总数</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card shadow="hover">
-          <div class="stat-card">
-            <div class="stat-icon" style="background-color: #67c23a;">
+            <div class="stat-icon" style="background-color: #f56c6c;">
               <el-icon :size="30"><UserFilled /></el-icon>
             </div>
             <div class="stat-content">
@@ -35,6 +21,19 @@
               <el-icon :size="30"><Avatar /></el-icon>
             </div>
             <div class="stat-content">
+              <div class="stat-value">{{ stats.supervisor_count }}</div>
+              <div class="stat-label">主管数量</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="8">
+        <el-card shadow="hover">
+          <div class="stat-card">
+            <div class="stat-icon" style="background-color: #909399;">
+              <el-icon :size="30"><User /></el-icon>
+            </div>
+            <div class="stat-content">
               <div class="stat-value">{{ stats.user_count }}</div>
               <div class="stat-label">普通用户数量</div>
             </div>
@@ -43,7 +42,6 @@
       </el-col>
     </el-row>
 
-    <!-- 搜索和筛选 -->
     <el-card style="margin-bottom: 20px;">
       <el-form :inline="true" :model="searchForm">
         <el-form-item label="用户名">
@@ -67,13 +65,12 @@
       </el-form>
     </el-card>
 
-    <!-- 用户表格 -->
     <el-table :data="users" border style="width: 100%" v-loading="loading">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="username" label="用户名" min-width="150" />
       <el-table-column prop="role_name" label="角色" width="120">
         <template #default="scope">
-          <el-tag :type="scope.row.role_id === 1 ? 'danger' : 'info'">
+          <el-tag :type="getRoleTagType(scope.row.role_id)">
             {{ scope.row.role_name }}
           </el-tag>
         </template>
@@ -100,7 +97,6 @@
       </el-table-column>
     </el-table>
 
-    <!-- 新增/编辑用户对话框 -->
     <el-dialog
       v-model="dialogVisible"
       :title="isEdit ? '编辑用户' : '新增用户'"
@@ -135,7 +131,6 @@
       </template>
     </el-dialog>
 
-    <!-- 重置密码对话框 -->
     <el-dialog v-model="resetPasswordVisible" title="重置密码" width="400px">
       <p>确定要重置用户 <strong>{{ currentUser?.username }}</strong> 的密码吗？</p>
       <p style="color: #f56c6c; margin-top: 10px;">重置后密码将变为：123456</p>
@@ -165,8 +160,8 @@ const currentId = ref(null)
 const currentUser = ref(null)
 
 const stats = ref({
-  total_users: 0,
   admin_count: 0,
+  supervisor_count: 0,
   user_count: 0
 })
 
@@ -178,8 +173,17 @@ const searchForm = ref({
 const userForm = ref({
   username: '',
   password: '',
-  role_id: 2
+  role_id: 3
 })
+
+const getRoleTagType = (roleId) => {
+  switch(roleId) {
+    case 1: return 'danger'
+    case 2: return 'warning'
+    case 3: return 'info'
+    default: return 'info'
+  }
+}
 
 const fetchUsers = async () => {
   loading.value = true
@@ -204,16 +208,31 @@ const fetchUsers = async () => {
 
 const fetchRoles = async () => {
   try {
-    roles.value = await request.get('/api/users/roles')
+    const fetchedRoles = await request.get('/api/users/roles')
+
+    if (fetchedRoles.length < 3) {
+      roles.value = [
+        { id: 1, name: '管理员' },
+        { id: 2, name: '主管' },
+        { id: 3, name: '普通用户' }
+      ]
+    } else {
+      roles.value = fetchedRoles
+    }
   } catch (e) {
     console.error('获取角色数据失败', e)
+    roles.value = [
+      { id: 1, name: '管理员' },
+      { id: 2, name: '主管' },
+      { id: 3, name: '普通用户' }
+    ]
   }
 }
 
 const calculateStats = () => {
-  stats.value.total_users = users.value.length
   stats.value.admin_count = users.value.filter(u => u.role_id === 1).length
-  stats.value.user_count = users.value.filter(u => u.role_id === 2).length
+  stats.value.supervisor_count = users.value.filter(u => u.role_id === 2).length
+  stats.value.user_count = users.value.filter(u => u.role_id === 3).length
 }
 
 const handleSearch = () => {
@@ -233,8 +252,7 @@ const openAddDialog = () => {
   userForm.value = {
     username: '',
     password: '',
-    email: '',
-    role_id: 2
+    role_id: 3
   }
   dialogVisible.value = true
 }

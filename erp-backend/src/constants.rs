@@ -1,6 +1,7 @@
 pub const ROLE_ADMIN: i32 = 1;
-#[allow(dead_code)]
-pub const ROLE_USER: i32 = 2;
+pub const ROLE_SUPERVISOR: i32 = 2;
+pub const ROLE_USER: i32 = 3;
+
 pub const ORDER_STATUS_PENDING_APPROVAL: &str = "待审批";
 pub const ORDER_STATUS_APPROVED: &str = "已审批";
 pub const ORDER_STATUS_CANCELLED: &str = "已取消";

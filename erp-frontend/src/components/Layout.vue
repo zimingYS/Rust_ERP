@@ -120,10 +120,12 @@ import { ElMessageBox } from 'element-plus'
 const router = useRouter()
 const route = useRoute()
 const isCollapse = ref(false)
-const username = ref(localStorage.getItem('username') || '管理员')
+const username = ref(localStorage.getItem('username') || '用户')
 
-const userRole = ref(parseInt(localStorage.getItem('user_role') || '2'))
+const userRole = ref(parseInt(localStorage.getItem('user_role') || '3'))
 const isAdmin = computed(() => userRole.value === 1)
+const isSupervisor = computed(() => userRole.value === 2)
+const hasApprovePermission = computed(() => userRole.value === 1 || userRole.value === 2)
 
 const activeMenu = computed(() => route.path)
 
