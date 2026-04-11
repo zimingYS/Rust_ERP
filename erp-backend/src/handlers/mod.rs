@@ -8,3 +8,4 @@ pub(crate) mod sales_handler;
 pub(crate) mod inventory_handler;
 pub(crate) mod finance_handler;
 pub(crate) mod audit_handler;
+pub(crate) mod report_handler;

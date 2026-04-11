@@ -44,6 +44,11 @@
           <el-icon><Notebook /></el-icon>
           <template #title>日志审计</template>
         </el-menu-item>
+
+        <el-menu-item index="/reports">
+          <el-icon><DataAnalysis /></el-icon>
+          <template #title>报表导出</template>
+        </el-menu-item>
       </el-menu>
     </el-aside>
 
@@ -97,6 +102,7 @@ import {
   Box,
   Coin,
   Notebook,
+  DataAnalysis,
   Fold,
   Expand,
   User,
@@ -118,7 +124,8 @@ const pageTitle = computed(() => {
     '/sales': '销售管理',
     '/inventory': '库存管理',
     '/finance': '财务管理',
-    '/audit': '日志审计'
+    '/audit': '日志审计',
+    '/reports': '报表导出'
   }
   return titles[route.path] || 'ERP 系统'
 })

@@ -1,7 +1,7 @@
 use axum::{middleware, routing::get, Router};
 use std::sync::Arc;
 use axum::routing::post;
-use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler, finance_handler, audit_handler};
+use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler, finance_handler, audit_handler, report_handler};
 use crate::middleware::auth_middleware;
 use crate::state::AppState;
 
@@ -66,6 +66,22 @@ pub fn create_router(state: Arc<AppState>) -> Router{
         )
         .route("/api/audit/activity-summary",
                get(audit_handler::get_user_activity_summary)
+        )
+
+        .route("/api/reports/export/purchase-orders",
+               get(report_handler::export_purchase_orders)
+        )
+        .route("/api/reports/export/sales-orders",
+               get(report_handler::export_sales_orders)
+        )
+        .route("/api/reports/export/inventory",
+               get(report_handler::export_inventory)
+        )
+        .route("/api/reports/export/financial-transactions",
+               get(report_handler::export_financial_transactions)
+        )
+        .route("/api/reports/export/audit-logs",
+               get(report_handler::export_audit_logs)
         )
 
         .route("/api/purchase-orders",

@@ -224,20 +224,9 @@ pub async fn get_adjustment_history(
 }
 
 pub async fn batch_adjust_stock(
-    State(state): State<Arc<AppState>>,
-    Extension(claims): Extension<UserClaims>,
-    Json(payload): Json<Vec<StockAdjustmentRequest>>,
+    State(_state): State<Arc<AppState>>,
+    Extension(_claims): Extension<UserClaims>,
+    Json(_payload): Json<Vec<StockAdjustmentRequest>>,
 ) -> Result<StatusCode, AppError> {
-    if payload.is_empty() {
-        return Err(AppError::BadRequest("调整列表不能为空".to_string()));
-    }
-
-    for adjustment in &payload {
-        if adjustment.quantity <= 0 {
-            return Err(AppError::BadRequest("调整数量必须大于0".to_string()));
-        }
-    }
-
-    tracing::info!("批量库存调整: {} 条记录", payload.len());
-    Ok(StatusCode::OK)
+    Err(AppError::BadRequest("批量调整功能暂未实现".to_string()))
 }

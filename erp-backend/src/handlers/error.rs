@@ -1,72 +1,90 @@
 use axum::http::StatusCode;
-use axum::Json;
-use axum::response::IntoResponse;
-use serde::Serialize;
-use tracing::error;
-
-#[derive(Debug,Serialize)]
-pub struct ErrorResponse {
-    pub code: u16,
-    pub message: String,
-}
+use axum::response::{IntoResponse, Response};
+use sea_orm::DbErr;
+use jsonwebtoken::errors::Error as JWTError;
 
 #[derive(Debug)]
 pub enum AppError {
-    #[allow(dead_code)]
+    DbError(DbErr),
+    AuthError(String),
     Unauthorized,
     NotFound(String),
-    #[allow(dead_code)]
     BadRequest(String),
-    #[allow(dead_code)]
     InternalError(String),
-    Database(sea_orm::DbErr),
-    Jwt(jsonwebtoken::errors::Error),
+    CsvError(csv::Error),
+    CsvInnerError(String),
+    JsonError(serde_json::Error),
 }
 
 impl IntoResponse for AppError {
-    fn into_response(self) -> axum::response::Response {
-        let (status, message) = match self {
-            AppError::Database(e) => {
-                error!("数据库错误: {:?}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, format!("数据库错误: {}", e))
+    fn into_response(self) -> Response {
+        let (status, error_message) = match self {
+            AppError::DbError(err) => {
+                tracing::error!("数据库错误: {:?}", err);
+                (StatusCode::INTERNAL_SERVER_ERROR, "数据库操作失败".to_string())
             },
-            AppError::NotFound(msg) => {
-                error!("未找到: {}", msg);
-                (StatusCode::NOT_FOUND, msg.clone())
+            AppError::AuthError(msg) => {
+                tracing::warn!("认证错误: {}", msg);
+                (StatusCode::UNAUTHORIZED, msg)
             },
             AppError::Unauthorized => {
-                error!("未授权访问");
-                (StatusCode::UNAUTHORIZED, "未授权".to_string())
+                tracing::warn!("未授权访问");
+                (StatusCode::UNAUTHORIZED, "未授权访问".to_string())
+            },
+            AppError::NotFound(msg) => {
+                tracing::warn!("资源不存在: {}", msg);
+                (StatusCode::NOT_FOUND, msg)
             },
             AppError::BadRequest(msg) => {
-                error!("请求错误: {}", msg);
-                (StatusCode::BAD_REQUEST, msg.clone())
+                tracing::warn!("请求错误: {}", msg);
+                (StatusCode::BAD_REQUEST, msg)
             },
             AppError::InternalError(msg) => {
-                error!("内部错误: {}", msg);
-                (StatusCode::INTERNAL_SERVER_ERROR, msg.clone())
+                tracing::error!("内部错误: {}", msg);
+                (StatusCode::INTERNAL_SERVER_ERROR, msg)
             },
-            AppError::Jwt(e) => {
-                error!("JWT错误: {:?}", e);
-                (StatusCode::UNAUTHORIZED, "令牌验证失败".to_string())
+            AppError::CsvError(err) => {
+                tracing::error!("CSV导出错误: {:?}", err);
+                (StatusCode::INTERNAL_SERVER_ERROR, "CSV导出失败".to_string())
+            },
+            AppError::CsvInnerError(msg) => {
+                tracing::error!("CSV内部错误: {}", msg);
+                (StatusCode::INTERNAL_SERVER_ERROR, "CSV处理失败".to_string())
+            },
+            AppError::JsonError(err) => {
+                tracing::error!("JSON序列化错误: {:?}", err);
+                (StatusCode::INTERNAL_SERVER_ERROR, "JSON序列化失败".to_string())
             },
         };
-        let body = Json(ErrorResponse {
-            code: status.as_u16(),
-            message,
+
+        let body = serde_json::json!({
+            "error": error_message
         });
-        (status, body).into_response()
+
+        (status, axum::Json(body)).into_response()
     }
 }
 
-impl From<sea_orm::DbErr> for AppError {
-    fn from(e: sea_orm::DbErr) -> Self {
-        AppError::Database(e)
+impl From<DbErr> for AppError {
+    fn from(err: DbErr) -> Self {
+        AppError::DbError(err)
     }
 }
 
-impl From<jsonwebtoken::errors::Error> for AppError {
-    fn from(e: jsonwebtoken::errors::Error) -> Self {
-        AppError::Jwt(e)
+impl From<JWTError> for AppError {
+    fn from(err: JWTError) -> Self {
+        AppError::AuthError(format!("Token验证失败: {}", err))
+    }
+}
+
+impl From<csv::Error> for AppError {
+    fn from(err: csv::Error) -> Self {
+        AppError::CsvError(err)
+    }
+}
+
+impl From<serde_json::Error> for AppError {
+    fn from(err: serde_json::Error) -> Self {
+        AppError::JsonError(err)
     }
 }

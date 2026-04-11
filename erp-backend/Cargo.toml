@@ -20,3 +20,4 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 argon2 = "0.5"
 password-hash = "0.5"
 rand_core = "0.6"
+csv = "1.3"

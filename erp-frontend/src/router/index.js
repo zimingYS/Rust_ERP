@@ -7,6 +7,7 @@ import SalesManagement from "../views/SalesManagement.vue";
 import InventoryManagement from "../views/InventoryManagement.vue";
 import FinanceManagement from "../views/FinanceManagement.vue";
 import AuditLog from "../views/AuditLog.vue";
+import ReportExport from "../views/ReportExport.vue";
 import Layout from '../components/Layout.vue'
 
 const routes = [
@@ -58,6 +59,11 @@ const routes = [
                 path: 'audit',
                 name: 'AuditLog',
                 component: AuditLog
+            },
+            {
+                path: 'reports',
+                name: 'ReportExport',
+                component: ReportExport
             }
         ]
     }
