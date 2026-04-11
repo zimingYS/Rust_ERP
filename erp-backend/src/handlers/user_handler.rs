@@ -12,6 +12,7 @@ use serde_json::json;
 use std::sync::Arc;
 use crate::auth;
 use crate::handlers::error::AppError;
+use crate::constants::ROLE_USER;
 
 #[derive(Deserialize)]
 pub struct LoginRequest{
@@ -19,20 +20,12 @@ pub struct LoginRequest{
     pub password: String,
 }
 
-// #[derive(Serialize)]
-// pub struct LoginResponse{
-//     pub code: String,
-//     pub token: String,
-//     pub msg: String,
-// }
-
 #[derive(Deserialize)]
 pub struct RegisterRequest {
     pub username: String,
     pub password: String,
 }
 
-// 注册
 pub async fn register(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<RegisterRequest>
@@ -55,21 +48,16 @@ pub async fn register(
 
     tracing::info!("尝试注册用户: {}", payload.username);
 
-    let default_role_id = 1;
-
-    tracing::info!("为用户 {} 分配默认角色ID: {} (普通用户)", payload.username, default_role_id);
-
-
     let new_user = user::ActiveModel {
         username: Set(payload.username),
         password_hash: Set(password_hash),
-        role_id: Set(default_role_id),
+        role_id: Set(ROLE_USER),
         ..Default::default()
     };
 
     let res = new_user.insert(&state.db).await?;
 
-    tracing::info!("用户注册成功! ID: {}", res.id);
+    tracing::info!("用户注册成功! ID: {}, 角色: 普通用户", res.id);
 
     Ok((
         axum::http::StatusCode::OK,
@@ -77,7 +65,6 @@ pub async fn register(
     ))
 }
 
-// 登录
 pub async fn login(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<LoginRequest>
