@@ -1,7 +1,7 @@
 use axum::{middleware, routing::get, Router};
 use std::sync::Arc;
 use axum::routing::post;
-use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler};
+use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler};
 use crate::middleware::auth_middleware;
 use crate::state::AppState;
 
@@ -21,6 +21,25 @@ pub fn create_router(state: Arc<AppState>) -> Router{
             post(item_handler::adjust_stock)
         )
         
+        .route("/api/inventory",
+               get(inventory_handler::get_inventory_list)
+        )
+        .route("/api/inventory/stats",
+               get(inventory_handler::get_inventory_stats)
+        )
+        .route("/api/inventory/{id}",
+               get(inventory_handler::get_item_inventory)
+        )
+        .route("/api/inventory/{id}/adjust",
+               post(inventory_handler::adjust_stock)
+        )
+        .route("/api/inventory/{id}/history",
+               get(inventory_handler::get_adjustment_history)
+        )
+        .route("/api/inventory/batch-adjust",
+               post(inventory_handler::batch_adjust_stock)
+        )
+
         .route("/api/purchase-orders",
                get(purchase_handler::get_purchase_orders)
                    .post(purchase_handler::create_purchase_order)

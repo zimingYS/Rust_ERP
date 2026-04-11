@@ -4,6 +4,7 @@ import Register from '../views/Register.vue'
 import Dashboard from '../views/Dashboard.vue'
 import PurchaseManagement from "../views/PurchaseManagement.vue";
 import SalesManagement from "../views/SalesManagement.vue";
+import InventoryManagement from "../views/InventoryManagement.vue";
 import Layout from '../components/Layout.vue'
 
 const routes = [
@@ -40,6 +41,11 @@ const routes = [
                 path: 'sales',
                 name: 'SalesManagement',
                 component: SalesManagement
+            },
+            {
+                path: 'inventory',
+                name: 'InventoryManagement',
+                component: InventoryManagement
             }
         ]
     }

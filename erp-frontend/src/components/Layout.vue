@@ -29,6 +29,11 @@
           <el-icon><Sell /></el-icon>
           <template #title>销售管理</template>
         </el-menu-item>
+
+        <el-menu-item index="/inventory">
+          <el-icon><Box /></el-icon>
+          <template #title>库存管理</template>
+        </el-menu-item>
       </el-menu>
     </el-aside>
 
@@ -79,6 +84,7 @@ import {
   HomeFilled,
   ShoppingCart,
   Sell,
+  Box,
   Fold,
   Expand,
   User,
@@ -97,7 +103,8 @@ const pageTitle = computed(() => {
   const titles = {
     '/dashboard': '物料管理',
     '/purchase': '采购管理',
-    '/sales': '销售管理'
+    '/sales': '销售管理',
+    '/inventory': '库存管理'
   }
   return titles[route.path] || 'ERP 系统'
 })

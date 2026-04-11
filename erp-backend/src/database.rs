@@ -59,6 +59,10 @@ pub async fn init_tables(db: &DatabaseConnection) {
         schema.create_table_from_entity(entities::sales_order_item::Entity).if_not_exists()
     )).await;
 
+    let _ = db.execute(builder.build(
+        schema.create_table_from_entity(entities::inventory_adjustment::Entity).if_not_exists()
+    )).await;
+
     tracing::info!("数据库表创建完成!");
 }
 
