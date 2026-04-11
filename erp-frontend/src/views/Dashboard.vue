@@ -1,7 +1,7 @@
 <template>
   <div style="padding: 20px;">
-    <el-card shadow="never">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <el-card shadow="never" class="search-card">
+      <div class="table-toolbar">
         <div style="display: flex; gap: 10px; flex: 1;">
           <el-input
             v-model="searchKeyword"
