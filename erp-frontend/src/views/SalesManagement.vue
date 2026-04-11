@@ -642,7 +642,7 @@ onMounted(() => {
   width: 100%;
 }
 
-:deep(.el-input-number .el-input__inner) {
+:deep(.el-input-number input) {
   text-align: center;
 }
 </style>

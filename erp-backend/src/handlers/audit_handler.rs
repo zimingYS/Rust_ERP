@@ -18,8 +18,6 @@ pub struct AuditLogQueryParams {
     pub action: Option<String>,
     pub start_date: Option<String>,
     pub end_date: Option<String>,
-    pub page: Option<u64>,
-    pub page_size: Option<u64>,
 }
 
 #[derive(Deserialize)]

@@ -474,7 +474,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.el-tag {
+:deep(.el-tag) {
   font-weight: 500;
 }
 </style>

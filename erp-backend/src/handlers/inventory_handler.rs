@@ -17,9 +17,7 @@ use crate::auth::UserClaims;
 pub struct InventoryQueryParams {
     pub keyword: Option<String>,
     pub sku: Option<String>,
-    pub low_stock: Option<bool>,
-    pub page: Option<u64>,
-    pub page_size: Option<u64>,
+    pub low_stock_only: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -79,7 +77,7 @@ pub async fn get_inventory_list(
         }
     }).collect();
 
-    let filtered_items: Vec<InventoryItem> = if params.low_stock == Some(true) {
+    let filtered_items: Vec<InventoryItem> = if params.low_stock_only == Some(true) {
         inventory_items.into_iter().filter(|item| item.is_low_stock || item.stock == 0).collect()
     } else {
         inventory_items

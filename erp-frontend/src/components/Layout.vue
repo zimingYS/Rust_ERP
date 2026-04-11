@@ -171,15 +171,15 @@ const handleCommand = (command) => {
   background-color: #2b3a4b;
 }
 
-.el-menu {
+:deep(.el-menu) {
   border-right: none;
 }
 
-.el-menu-item:hover {
+:deep(.el-menu-item:hover) {
   background-color: #263445 !important;
 }
 
-.el-menu-item.is-active {
+:deep(.el-menu-item.is-active) {
   background-color: #1f2d3d !important;
 }
 </style>

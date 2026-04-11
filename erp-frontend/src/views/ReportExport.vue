@@ -255,7 +255,8 @@ const exportPurchaseOrders = async () => {
     })
 
     if (!response.ok) {
-      throw new Error('导出失败')
+      ElMessage.error('导出失败')
+      return
     }
 
     const blob = await response.blob()
@@ -288,7 +289,8 @@ const exportSalesOrders = async () => {
     })
 
     if (!response.ok) {
-      throw new Error('导出失败')
+      ElMessage.error('导出失败')
+      return
     }
 
     const blob = await response.blob()
@@ -312,7 +314,8 @@ const exportInventory = async () => {
     })
 
     if (!response.ok) {
-      throw new Error('导出失败')
+      ElMessage.error('导出失败')
+      return
     }
 
     const blob = await response.blob()
@@ -344,7 +347,8 @@ const exportFinance = async () => {
     })
 
     if (!response.ok) {
-      throw new Error('导出失败')
+      ElMessage.error('导出失败')
+      return
     }
 
     const blob = await response.blob()
@@ -376,7 +380,8 @@ const exportAuditLogs = async () => {
     })
 
     if (!response.ok) {
-      throw new Error('导出失败')
+      ElMessage.error('导出失败')
+      return
     }
 
     const blob = await response.blob()
