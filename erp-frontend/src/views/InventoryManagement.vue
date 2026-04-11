@@ -296,8 +296,8 @@ const submitAdjustment = async () => {
     await request.post(`/api/inventory/${currentItem.value.id}/adjust`, adjustForm.value)
     ElMessage.success('库存调整成功')
     adjustDialogVisible.value = false
-    fetchInventory()
-    fetchStats()
+    await fetchInventory()
+    await fetchStats()
   } catch (error) {
     const errorMsg = error.response?.data?.error || '调整失败'
     ElMessage.error(errorMsg)
@@ -316,19 +316,22 @@ const viewHistory = async (item) => {
 
 const getStockColor = (item) => {
   if (item.stock === 0) return '#f56c6c'
-  if (item.is_low_stock) return '#e6a23c'
+  const minStock = item.min_stock || 0
+  if (item.stock <= minStock) return '#e6a23c'
   return '#67c23a'
 }
 
 const getStockStatus = (item) => {
   if (item.stock === 0) return '缺货'
-  if (item.is_low_stock) return '低库存'
+  const minStock = item.min_stock || 0
+  if (item.stock <= minStock) return '低库存'
   return '正常'
 }
 
 const getStockStatusType = (item) => {
   if (item.stock === 0) return 'danger'
-  if (item.is_low_stock) return 'warning'
+  const minStock = item.min_stock || 0
+  if (item.stock <= minStock) return 'warning'
   return 'success'
 }
 
