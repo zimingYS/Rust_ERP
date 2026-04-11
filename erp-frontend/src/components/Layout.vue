@@ -1,6 +1,5 @@
 <template>
   <el-container style="height: 100vh;">
-    <!-- 左侧菜单栏 -->
     <el-aside :width="isCollapse ? '64px' : '200px'" class="sidebar" style="background-color: #304156; transition: width 0.3s;">
       <div class="logo">
         <span v-if="!isCollapse">ERP 系统</span>
@@ -45,7 +44,6 @@
           <template #title>报表导出</template>
         </el-menu-item>
 
-        <!-- 仅管理员可见 -->
         <el-menu-item v-if="isAdmin" index="/audit">
           <el-icon><Notebook /></el-icon>
           <template #title>日志审计</template>
@@ -58,25 +56,27 @@
       </el-menu>
     </el-aside>
 
-    <!-- 右侧内容区 -->
     <el-container class="main-container">
-      <!-- 顶部导航栏 -->
       <el-header style="background-color: #fff; border-bottom: 1px solid #dfe6ec; display: flex; align-items: center; justify-content: space-between; padding: 0 20px;">
         <div style="display: flex; align-items: center;">
           <el-icon
-              @click="toggleCollapse"              style="font-size: 20px; cursor: pointer; margin-right: 15px;"
+              @click="toggleCollapse"
+              style="font-size: 20px; cursor: pointer; margin-right: 15px;"
           >
             <Fold v-if="!isCollapse" />
             <Expand v-else />
           </el-icon>
-          <h2 style="margin: 0;">{{ pageTitle }}</h2>
+          <el-breadcrumb separator="/">
+            <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
+            <el-breadcrumb-item>{{ pageTitle }}</el-breadcrumb-item>
+          </el-breadcrumb>
         </div>
 
         <div style="display: flex; align-items: center; gap: 15px;">
           <el-dropdown @command="handleCommand">
             <span style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
               <el-icon><User /></el-icon>
-              <span>管理员</span>
+              <span>{{ username }}</span>
               <el-icon><ArrowDown /></el-icon>
             </span>
             <template #dropdown>
@@ -91,7 +91,6 @@
         </div>
       </el-header>
 
-      <!-- 主要内容区 -->
       <el-main style="background-color: #f0f2f5; padding: 20px;">
         <router-view />
       </el-main>
@@ -99,7 +98,8 @@
   </el-container>
 </template>
 
-<script setup>import { ref, computed } from 'vue'
+<script setup>
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   HomeFilled,
@@ -120,8 +120,8 @@ import { ElMessageBox } from 'element-plus'
 const router = useRouter()
 const route = useRoute()
 const isCollapse = ref(false)
+const username = ref(localStorage.getItem('username') || '管理员')
 
-// 从 localStorage 获取用户角色
 const userRole = ref(parseInt(localStorage.getItem('user_role') || '2'))
 const isAdmin = computed(() => userRole.value === 1)
 
@@ -154,10 +154,18 @@ const handleCommand = (command) => {
     }).then(() => {
       localStorage.removeItem('erp_token')
       localStorage.removeItem('user_role')
+      localStorage.removeItem('username')
       router.push('/login')
     }).catch(() => {})
   }
 }
+
+onMounted(() => {
+  const storedUsername = localStorage.getItem('username')
+  if (storedUsername) {
+    username.value = storedUsername
+  }
+})
 </script>
 
 <style scoped>

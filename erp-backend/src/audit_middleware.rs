@@ -44,7 +44,10 @@ pub async fn audit_logger_middleware(
 
     let status = response.status().as_u16() as i32;
 
-    if path.starts_with("/api/") && !path.contains("/health") {
+    if path.starts_with("/api/")
+        && !path.contains("/health")
+        && method != "GET"
+    {
         let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
         let (user_id, username) = user_info.unwrap_or((0, "anonymous".to_string()));
@@ -100,13 +103,6 @@ fn determine_module(path: &str) -> String {
 
 fn determine_action(method: &str, path: &str) -> String {
     match method {
-        "GET" => {
-            if path.split('/').last().map_or(false, |s| s.parse::<i32>().is_ok()) {
-                "查看详情".to_string()
-            } else {
-                "查询列表".to_string()
-            }
-        },
         "POST" => {
             if path.contains("/approve") || path.contains("/confirm") {
                 "审批操作".to_string()

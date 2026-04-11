@@ -1,5 +1,60 @@
 <template>
   <div style="padding: 20px;">
+    <el-row :gutter="20" style="margin-bottom: 20px;">
+      <el-col :span="6">
+        <el-card shadow="hover" class="quick-access-card" @click="goToPage('/purchase')">
+          <div class="stat-card">
+            <div class="stat-icon" style="background-color: #409eff;">
+              <el-icon :size="30"><ShoppingCart /></el-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-label">采购管理</div>
+              <div class="stat-desc">创建采购订单</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="quick-access-card" @click="goToPage('/sales')">
+          <div class="stat-card">
+            <div class="stat-icon" style="background-color: #67c23a;">
+              <el-icon :size="30"><Sell /></el-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-label">销售管理</div>
+              <div class="stat-desc">创建销售订单</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="quick-access-card" @click="goToPage('/inventory')">
+          <div class="stat-card">
+            <div class="stat-icon" style="background-color: #e6a23c;">
+              <el-icon :size="30"><Box /></el-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-label">库存管理</div>
+              <div class="stat-desc">查看库存状态</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover" class="quick-access-card" @click="goToPage('/finance')">
+          <div class="stat-card">
+            <div class="stat-icon" style="background-color: #f56c6c;">
+              <el-icon :size="30"><Coin /></el-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-label">财务管理</div>
+              <div class="stat-desc">查看财务记录</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <el-card shadow="never" class="search-card">
       <div class="table-toolbar">
         <div style="display: flex; gap: 10px; flex: 1;">
@@ -80,7 +135,7 @@
             {{ scope.row.description || '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="350" fixed="right">
           <template #default="scope">
             <div style="display: flex; gap: 8px;">
               <el-button size="small" @click="handleEdit(scope.row)">
@@ -94,6 +149,14 @@
               >
                 <el-icon><Refresh /></el-icon>
                 调库存
+              </el-button>
+              <el-button
+                size="small"
+                type="warning"
+                @click="goToInventory(scope.row.id)"
+              >
+                <el-icon><Box /></el-icon>
+                查库存
               </el-button>
               <el-button type="danger" size="small" @click="deleteItem(scope.row.id)">
                 <el-icon><Delete /></el-icon>
@@ -202,18 +265,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  Search,
-  Ticket,
-  Plus,
-  Delete,
-  Edit,
-  Refresh
-} from '@element-plus/icons-vue'
+import { Search, Plus, Edit, Delete, Refresh, Ticket, ShoppingCart, Sell, Box, Coin } from '@element-plus/icons-vue'
+import request from '../utils/request'
 
 const router = useRouter()
 const items = ref([])
@@ -223,20 +279,19 @@ const stockSubmitLoading = ref(false)
 const dialogVisible = ref(false)
 const stockDialogVisible = ref(false)
 const isEdit = ref(false)
-const currentId = ref(null)
-const selectedIds = ref([])
 const itemFormRef = ref(null)
+const selectedIds = ref([])
 
 const searchKeyword = ref('')
 const searchSku = ref('')
 
-const pagination = ref({
+const pagination = reactive({
   page: 1,
   pageSize: 10,
   total: 0
 })
 
-const newItem = ref({
+const newItem = reactive({
   name: '',
   sku: '',
   stock: 0,
@@ -245,34 +300,38 @@ const newItem = ref({
   description: ''
 })
 
-const currentItem = ref({})
-const stockAdjustment = ref({
+const currentItem = reactive({
+  id: 0,
+  name: '',
+  stock: 0
+})
+
+const stockAdjustment = reactive({
   adjustment: 0,
   reason: ''
 })
 
 const rules = {
-  name: [
-    { required: true, message: '请输入物料名称', trigger: 'blur' },
-    { min: 2, max: 100, message: '长度在 2 到 100 个字符', trigger: 'blur' }
-  ],
-  sku: [
-    { required: true, message: '请输入SKU编号', trigger: 'blur' },
-    { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
-  ],
-  stock: [
-    { required: true, message: '请输入库存数量', trigger: 'blur' }
-  ]
+  name: [{ required: true, message: '请输入物料名称', trigger: 'blur' }],
+  sku: [{ required: true, message: '请输入SKU编号', trigger: 'blur' }],
+  stock: [{ required: true, message: '请输入库存数量', trigger: 'blur' }]
 }
 
-const fetchItems = async () => {
+const goToPage = (path) => {
+  router.push(path)
+}
+
+const goToInventory = (itemId) => {
+  router.push(`/inventory?id=${itemId}`)
+}
+
+const loadItems = async () => {
   loading.value = true
   try {
     const params = {
-      page: pagination.value.page,
-      page_size: pagination.value.pageSize
+      page: pagination.page,
+      page_size: pagination.pageSize
     }
-
     if (searchKeyword.value) {
       params.keyword = searchKeyword.value
     }
@@ -280,86 +339,32 @@ const fetchItems = async () => {
       params.sku = searchSku.value
     }
 
-    const response = await request.get('/api/items', { params })
-    items.value = response.data.items
-    pagination.value.total = response.data.total
-  } catch (e) {
-    console.error('获取数据失败', e)
-    ElMessage.error('获取数据失败')
+    const res = await request.get('/api/items', { params })
+    if (res.code === 200) {
+      items.value = res.data.items
+      pagination.total = res.data.total
+    }
+  } catch (error) {
+    console.error('加载物料列表失败:', error)
   } finally {
     loading.value = false
   }
 }
 
 const handleSearch = () => {
-  pagination.value.page = 1
-  fetchItems()
+  pagination.page = 1
+  loadItems()
 }
 
 const handleReset = () => {
   searchKeyword.value = ''
   searchSku.value = ''
-  pagination.value.page = 1
-  fetchItems()
-}
-
-const handlePageChange = (page) => {
-  pagination.value.page = page
-  fetchItems()
-}
-
-const handleSizeChange = (pageSize) => {
-  pagination.value.pageSize = pageSize
-  pagination.value.page = 1
-  fetchItems()
+  pagination.page = 1
+  loadItems()
 }
 
 const handleSelectionChange = (selection) => {
   selectedIds.value = selection.map(item => item.id)
-}
-
-const saveItem = async () => {
-  if (!itemFormRef.value) return
-
-  await itemFormRef.value.validate(async (valid) => {
-    if (!valid) return
-
-    submitLoading.value = true
-    try {
-      if (isEdit.value) {
-        await request.put(`/api/items/${currentId.value}`, newItem.value)
-        ElMessage.success('更新成功!')
-      } else {
-        await request.post('/api/items', newItem.value)
-        ElMessage.success('添加成功!')
-      }
-      dialogVisible.value = false
-      fetchItems()
-    } catch (error) {
-      const errorMsg = error.response?.data?.message || '操作失败'
-      ElMessage.error(errorMsg)
-    } finally {
-      submitLoading.value = false
-    }
-  })
-}
-
-const deleteItem = async (id) => {
-  try {
-    await ElMessageBox.confirm('确定要删除这个物料吗？', '警告', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    await request.delete(`/api/items/${id}`)
-    ElMessage.success('物料已成功删除')
-    fetchItems()
-  } catch (error) {
-    if (error !== 'cancel') {
-      const errorMsg = error.response?.data?.message || '删除失败'
-      ElMessage.error(errorMsg)
-    }
-  }
 }
 
 const handleBatchDelete = async () => {
@@ -373,108 +378,189 @@ const handleBatchDelete = async () => {
         type: 'warning'
       }
     )
-    const response = await request.delete('/api/items', { data: selectedIds.value })
-    ElMessage.success(response.message || '批量删除成功')
+
+    await request.delete('/api/items', { data: selectedIds.value })
+    ElMessage.success('批量删除成功')
     selectedIds.value = []
-    fetchItems()
+    loadItems()
   } catch (error) {
     if (error !== 'cancel') {
-      const errorMsg = error.response?.data?.message || '批量删除失败'
-      ElMessage.error(errorMsg)
+      console.error('批量删除失败:', error)
     }
   }
 }
 
-const handleEdit = (row) => {
-  isEdit.value = true
-  currentId.value = row.id
-  newItem.value = {
-    name: row.name,
-    sku: row.sku,
-    stock: row.stock,
-    unit: row.unit || '',
-    min_stock: row.min_stock || 0,
-    description: row.description || ''
-  }
-  dialogVisible.value = true
-}
-
 const openAddDialog = () => {
   isEdit.value = false
-  currentId.value = null
-  newItem.value = {
+  Object.assign(newItem, {
     name: '',
     sku: '',
     stock: 0,
     unit: '',
     min_stock: 0,
     description: ''
-  }
+  })
   dialogVisible.value = true
 }
 
-const openStockDialog = (row) => {
-  currentItem.value = row
-  stockAdjustment.value = {
-    adjustment: 0,
-    reason: ''
+const handleEdit = (row) => {
+  isEdit.value = true
+  Object.assign(newItem, row)
+  dialogVisible.value = true
+}
+
+const saveItem = async () => {
+  if (!itemFormRef.value) return
+
+  try {
+    await itemFormRef.value.validate()
+    submitLoading.value = true
+
+    if (isEdit.value) {
+      await request.put(`/api/items/${newItem.id}`, newItem)
+      ElMessage.success('更新成功')
+    } else {
+      await request.post('/api/items', newItem)
+      ElMessage.success('创建成功')
+    }
+
+    dialogVisible.value = false
+    loadItems()
+  } catch (error) {
+    if (error !== false) {
+      console.error('保存失败:', error)
+    }
+  } finally {
+    submitLoading.value = false
   }
+}
+
+const deleteItem = async (id) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该物料吗？', '警告', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    await request.delete(`/api/items/${id}`)
+    ElMessage.success('删除成功')
+    loadItems()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除失败:', error)
+    }
+  }
+}
+
+const openStockDialog = (row) => {
+  Object.assign(currentItem, row)
+  stockAdjustment.adjustment = 0
+  stockAdjustment.reason = ''
   stockDialogVisible.value = true
 }
 
+const getAdjustedStockType = () => {
+  const adjustedStock = currentItem.stock + stockAdjustment.adjustment
+  if (adjustedStock < 0) return 'danger'
+  if (adjustedStock === 0) return 'info'
+  if (adjustedStock <= currentItem.min_stock) return 'warning'
+  return 'success'
+}
+
 const saveStockAdjustment = async () => {
-  if (stockAdjustment.value.adjustment === 0) {
-    ElMessage.warning('请输入调整数量')
+  if (stockAdjustment.adjustment === 0) {
+    ElMessage.warning('调整数量不能为0')
     return
   }
 
-  stockSubmitLoading.value = true
   try {
-    await request.post(`/api/items/${currentItem.value.id}/stock`, stockAdjustment.value)
-    ElMessage.success('库存调整成功!')
+    stockSubmitLoading.value = true
+    await request.post(`/api/items/${currentItem.id}/stock`, stockAdjustment)
+    ElMessage.success('库存调整成功')
     stockDialogVisible.value = false
-    fetchItems()
+    loadItems()
   } catch (error) {
-    const errorMsg = error.response?.data?.message || '库存调整失败'
-    ElMessage.error(errorMsg)
+    console.error('库存调整失败:', error)
   } finally {
     stockSubmitLoading.value = false
   }
 }
 
 const getStockType = (row) => {
-  if (row.min_stock && row.stock <= row.min_stock) {
-    return 'danger'
-  }
-  if (row.stock === 0) {
-    return 'info'
-  }
+  if (row.stock === 0) return 'danger'
+  if (row.min_stock && row.stock <= row.min_stock) return 'warning'
   return 'success'
 }
 
-const getAdjustedStockType = () => {
-  const adjustedStock = currentItem.value.stock + stockAdjustment.value.adjustment
-  if (adjustedStock < 0) {
-    return 'danger'
-  }
-  if (currentItem.value.min_stock && adjustedStock <= currentItem.value.min_stock) {
-    return 'warning'
-  }
-  return 'success'
+const handleSizeChange = (val) => {
+  pagination.pageSize = val
+  loadItems()
+}
+
+const handlePageChange = (val) => {
+  pagination.page = val
+  loadItems()
 }
 
 onMounted(() => {
-  const token = localStorage.getItem('erp_token')
-  if (!token) {
-    router.push('/login')
-  } else {
-    fetchItems()
-  }
+  loadItems()
 })
 </script>
 
 <style scoped>
-:deep(.el-tag) {
-  font-weight: 500;
+.quick-access-card {
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.quick-access-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.stat-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-label {
+  font-size: 16px;
+  font-weight: bold;
+  color: #303133;
+  margin-bottom: 5px;
+}
+
+.stat-desc {
+  font-size: 12px;
+  color: #909399;
+}
+
+.search-card {
+  margin-bottom: 20px;
+}
+
+.table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 </style>
