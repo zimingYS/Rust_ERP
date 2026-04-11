@@ -8,7 +8,7 @@ use axum::Json;
 use chrono::Local;
 use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait};
 use serde::{Deserialize, Serialize};
-use crate::entities::{sales_order, sales_order_item};
+use crate::entities::{sales_order, sales_order_item, financial_transaction};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
 use crate::auth::UserClaims;
@@ -333,8 +333,26 @@ pub async fn complete_sales_order(
     order.status = Set(SALES_ORDER_STATUS_COMPLETED.to_string());
     order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
 
-    order.update(&state.db).await?;
-    tracing::info!("完成销售订单成功: ID={}, 操作人: {}", id, claims.username);
+    let updated_order = order.update(&state.db).await?;
+
+    let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+
+    let transaction = financial_transaction::ActiveModel {
+        transaction_type: Set("收入".to_string()),
+        category: Set("销售收入".to_string()),
+        amount: Set(updated_order.total_amount),
+        description: Set(Some(format!("销售订单: {} - 客户: {}", updated_order.order_number, updated_order.customer))),
+        transaction_date: Set(updated_order.order_date.clone()),
+        related_order_id: Set(Some(id)),
+        related_order_type: Set(Some("销售订单".to_string())),
+        created_by: Set(claims.user_id),
+        created_at: Set(now),
+        ..Default::default()
+    };
+
+    transaction.insert(&state.db).await?;
+
+    tracing::info!("完成销售订单并生成财务记录: ID={}, 金额: {}, 操作人: {}", id, updated_order.total_amount, claims.username);
     Ok(StatusCode::OK)
 }
 

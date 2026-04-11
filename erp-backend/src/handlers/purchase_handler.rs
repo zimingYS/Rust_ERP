@@ -8,7 +8,7 @@ use axum::Json;
 use chrono::Local;
 use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait};
 use serde::{Deserialize, Serialize};
-use crate::entities::{purchase_order, purchase_order_item};
+use crate::entities::{purchase_order, purchase_order_item, financial_transaction};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
 use crate::auth::UserClaims;
@@ -58,6 +58,23 @@ pub struct PurchaseOrderStats {
     pub approved: u64,
     pub total_amount: f64,
     pub this_month_amount: f64,
+}
+
+fn validate_purchase_order_items(items: &[PurchaseOrderItemRequest]) -> Result<(), AppError> {
+    if items.is_empty() {
+        return Err(AppError::BadRequest("订单项不能为空".to_string()));
+    }
+
+    for item in items {
+        if item.quantity <= 0 {
+            return Err(AppError::BadRequest(format!("物品 {} 的数量必须大于0", item.item_name)));
+        }
+        if item.unit_price < 0.0 {
+            return Err(AppError::BadRequest(format!("物品 {} 的单价不能为负数", item.item_name)));
+        }
+    }
+
+    Ok(())
 }
 
 pub async fn get_purchase_orders(
@@ -138,18 +155,7 @@ pub async fn create_purchase_order(
     Extension(claims): Extension<UserClaims>,
     Json(payload): Json<CreatePurchaseOrderRequest>,
 ) -> Result<(StatusCode, Json<purchase_order::Model>), AppError> {
-    if payload.items.is_empty() {
-        return Err(AppError::BadRequest("订单项不能为空".to_string()));
-    }
-
-    for item in &payload.items {
-        if item.quantity <= 0 {
-            return Err(AppError::BadRequest(format!("物品 {} 的数量必须大于0", item.item_name)));
-        }
-        if item.unit_price < 0.0 {
-            return Err(AppError::BadRequest(format!("物品 {} 的单价不能为负数", item.item_name)));
-        }
-    }
+    validate_purchase_order_items(&payload.items)?;
 
     let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
     let order_number = format!("{}{}", PURCHASE_ORDER_PREFIX, Local::now().format("%Y%m%d%H%M%S"));
@@ -204,18 +210,7 @@ pub async fn update_purchase_order(
         return Err(AppError::BadRequest("已审批的订单不能修改".to_string()));
     }
 
-    if payload.items.is_empty() {
-        return Err(AppError::BadRequest("订单项不能为空".to_string()));
-    }
-
-    for item in &payload.items {
-        if item.quantity <= 0 {
-            return Err(AppError::BadRequest(format!("物品 {} 的数量必须大于0", item.item_name)));
-        }
-        if item.unit_price < 0.0 {
-            return Err(AppError::BadRequest(format!("物品 {} 的单价不能为负数", item.item_name)));
-        }
-    }
+    validate_purchase_order_items(&payload.items)?;
 
     let mut order: purchase_order::ActiveModel = order.into();
 
@@ -305,8 +300,26 @@ pub async fn approve_purchase_order(
     order.status = Set(ORDER_STATUS_APPROVED.to_string());
     order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
 
-    order.update(&state.db).await?;
-    tracing::info!("审批采购订单成功: ID={}, 审批人: {}", id, claims.username);
+    let updated_order = order.update(&state.db).await?;
+
+    let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+
+    let transaction = financial_transaction::ActiveModel {
+        transaction_type: Set("支出".to_string()),
+        category: Set("采购成本".to_string()),
+        amount: Set(updated_order.total_amount),
+        description: Set(Some(format!("采购订单: {} - 供应商: {}", updated_order.order_number, updated_order.supplier))),
+        transaction_date: Set(updated_order.order_date.clone()),
+        related_order_id: Set(Some(id)),
+        related_order_type: Set(Some("采购订单".to_string())),
+        created_by: Set(claims.user_id),
+        created_at: Set(now),
+        ..Default::default()
+    };
+
+    transaction.insert(&state.db).await?;
+
+    tracing::info!("审批采购订单并生成财务记录: ID={}, 金额: {}, 审批人: {}", id, updated_order.total_amount, claims.username);
     Ok(StatusCode::OK)
 }
 
