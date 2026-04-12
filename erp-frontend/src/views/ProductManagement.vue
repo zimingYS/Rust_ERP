@@ -89,6 +89,14 @@
           <el-button @click="handleReset">重置</el-button>
         </div>
         <div style="display: flex; gap: 10px;">
+          <el-button type="success" @click="showImportDialog">
+            <el-icon><Upload /></el-icon>
+            批量导入
+          </el-button>
+          <el-button type="warning" @click="downloadTemplate">
+            <el-icon><Download /></el-icon>
+            下载模板
+          </el-button>
           <el-button
             type="danger"
             :disabled="selectedIds.length === 0"
@@ -232,6 +240,74 @@
         <el-button type="primary" @click="saveItem" :loading="submitLoading">确认提交</el-button>
       </template>
     </el-dialog>
+
+    <!-- 导入对话框 -->
+    <el-dialog v-model="importDialogVisible" title="批量导入产品" width="600px">
+      <el-alert
+        title="导入说明"
+        type="info"
+        :closable="false"
+        style="margin-bottom: 20px;"
+      >
+        <template #default>
+          <div style="line-height: 1.8;">
+            <p>1. 支持 CSV 和 Excel (.xlsx) 格式</p>
+            <p>2. 文件格式：产品名称, SKU, 初始库存, 单位, 最低库存, 描述</p>
+            <p>3. SKU 不能重复，重复的将被跳过</p>
+            <p>4. 建议先下载模板，按照模板格式填写数据</p>
+          </div>
+        </template>
+      </el-alert>
+
+      <el-upload
+        ref="uploadRef"
+        drag
+        :auto-upload="false"
+        :on-change="handleFileChange"
+        :limit="1"
+        accept=".csv,.xlsx,.xls"
+        style="width: 100%;"
+      >
+        <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+        <div class="el-upload__text">
+          拖拽文件到此处或 <em>点击上传</em>
+        </div>
+        <template #tip>
+          <div class="el-upload__tip">
+            只能上传 CSV 或 Excel 文件
+          </div>
+        </template>
+      </el-upload>
+
+      <div v-if="importResult" style="margin-top: 20px;">
+        <el-divider />
+        <h4>导入结果</h4>
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="成功数量">
+            <el-tag type="success">{{ importResult.success_count }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="失败数量">
+            <el-tag type="danger">{{ importResult.failed_count }}</el-tag>
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <div v-if="importResult.errors.length > 0" style="margin-top: 15px;">
+          <h5>错误详情：</h5>
+          <el-scrollbar height="200px">
+            <div v-for="(error, index) in importResult.errors" :key="index" style="color: #f56c6c; padding: 5px 0;">
+              {{ index + 1 }}. {{ error }}
+            </div>
+          </el-scrollbar>
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="closeImportDialog">关闭</el-button>
+        <el-button type="primary" @click="submitImport" :loading="importing" :disabled="!selectedFile">
+          开始导入
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -239,7 +315,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus, Edit, Delete, Ticket, ShoppingCart, Sell, Box, Coin, InfoFilled } from '@element-plus/icons-vue'
+import { Search, Plus, Edit, Delete, Ticket, ShoppingCart, Sell, Box, Coin, InfoFilled, Upload, Download, UploadFilled } from '@element-plus/icons-vue'
 import request from '../utils/request'
 
 const router = useRouter()
@@ -447,6 +523,93 @@ const handleSizeChange = (val) => {
 const handlePageChange = (val) => {
   pagination.page = val
   loadItems()
+}
+
+const importDialogVisible = ref(false)
+const importResult = ref(null)
+const selectedFile = ref(null)
+const importing = ref(false)
+const uploadRef = ref(null)
+
+const showImportDialog = () => {
+  importDialogVisible.value = true
+  importResult.value = null
+  selectedFile.value = null
+}
+
+const closeImportDialog = () => {
+  importDialogVisible.value = false
+  importResult.value = null
+  selectedFile.value = null
+  if (uploadRef.value) {
+    uploadRef.value.clearFiles()
+  }
+}
+
+const handleFileChange = (file) => {
+  selectedFile.value = file.raw
+}
+
+const downloadTemplate = async () => {
+  try {
+    const response = await fetch('/api/import/template', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('erp_token')}`
+      }
+    })
+    const text = await response.text()
+
+    const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = '产品导入模板.csv'
+    link.click()
+
+    ElMessage.success('模板下载成功')
+  } catch (e) {
+    console.error('下载模板失败', e)
+    ElMessage.error('下载模板失败')
+  }
+}
+
+const submitImport = async () => {
+  if (!selectedFile.value) {
+    ElMessage.warning('请选择要导入的文件')
+    return
+  }
+
+  importing.value = true
+  importResult.value = null
+
+  try {
+    const formData = new FormData()
+    formData.append('file', selectedFile.value)
+
+    const response = await fetch('/api/import/products', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('erp_token')}`
+      },
+      body: formData
+    })
+
+    const result = await response.json()
+    importResult.value = result
+
+    if (result.success_count > 0) {
+      ElMessage.success(`导入完成！成功 ${result.success_count} 条`)
+      loadItems() // 刷新列表
+    }
+
+    if (result.failed_count > 0) {
+      ElMessage.warning(`有 ${result.failed_count} 条记录导入失败，请查看错误详情`)
+    }
+  } catch (e) {
+    console.error('导入失败', e)
+    ElMessage.error('导入失败：' + e.message)
+  } finally {
+    importing.value = false
+  }
 }
 
 onMounted(() => {
