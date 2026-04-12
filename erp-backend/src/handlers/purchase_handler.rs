@@ -392,3 +392,44 @@ pub async fn cancel_purchase_order(
     tracing::info!("取消采购订单成功: ID={}, 操作人: {}", id, claims.username);
     Ok(StatusCode::OK)
 }
+
+pub async fn force_delete_purchase_order(
+    State(state): State<Arc<AppState>>,
+    Extension(claims): Extension<UserClaims>,
+    Path(id): Path<i32>,
+) -> Result<StatusCode, AppError> {
+    if claims.role_id != crate::constants::ROLE_ADMIN {
+        return Err(AppError::Forbidden("仅管理员可以强制删除订单".to_string()));
+    }
+
+    let order = purchase_order::Entity::find_by_id(id)
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("采购订单 {} 不存在", id)))?;
+
+    if order.status == ORDER_STATUS_APPROVED {
+        tracing::warn!(
+            "管理员强制删除已审批的采购订单: ID={}, 订单号={}, 操作人={}",
+            id, order.order_number, claims.username
+        );
+    }
+
+    purchase_order_item::Entity::delete_many()
+        .filter(purchase_order_item::Column::PurchaseOrderId.eq(id))
+        .exec(&state.db)
+        .await?;
+
+    let res = purchase_order::Entity::delete_by_id(id)
+        .exec(&state.db)
+        .await?;
+
+    if res.rows_affected > 0 {
+        tracing::warn!(
+            "管理员强制删除采购订单成功: ID={}, 订单号={}, 状态={}, 操作人={}",
+            id, order.order_number, order.status, claims.username
+        );
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(AppError::NotFound(format!("采购订单 {} 不存在", id)))
+    }
+}

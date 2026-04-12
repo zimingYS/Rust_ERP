@@ -129,6 +129,9 @@ pub fn create_router(state: Arc<AppState>) -> Router{
         .route("/api/purchase-orders/{id}/cancel",
                post(purchase_handler::cancel_purchase_order)
         )
+        .route("/api/purchase-orders/{id}/force-delete",
+               axum::routing::delete(purchase_handler::force_delete_purchase_order)
+        )
 
         .route("/api/sales-orders",
                get(sales_handler::get_sales_orders)
@@ -152,6 +155,9 @@ pub fn create_router(state: Arc<AppState>) -> Router{
         )
         .route("/api/sales-orders/{id}/cancel",
                post(sales_handler::cancel_sales_order)
+        )
+        .route("/api/sales-orders/{id}/force-delete",
+               axum::routing::delete(sales_handler::force_delete_sales_order)
         );
 
     Router::new()

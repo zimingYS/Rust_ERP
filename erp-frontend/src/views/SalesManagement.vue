@@ -107,9 +107,9 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="380" fixed="right">
+      <el-table-column label="操作" width="320">
         <template #default="scope">
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
             <el-button size="small" @click="handleView(scope.row)">查看</el-button>
             <el-button
               size="small"
@@ -145,10 +145,10 @@
             <el-button
               type="danger"
               size="small"
-              @click="deleteOrder(scope.row.id)"
-              :disabled="scope.row.status === '已确认' || scope.row.status === '已完成'"
+              @click="deleteOrder(scope.row.id, scope.row.status)"
+              :disabled="(scope.row.status === '已确认' || scope.row.status === '已完成') && !isAdmin"
             >
-              删除
+              {{ (scope.row.status === '已确认' || scope.row.status === '已完成') ? '强制删除' : '删除' }}
             </el-button>
           </div>
         </template>
@@ -317,6 +317,7 @@ const allItems = ref([])
 
 const userRole = ref(parseInt(localStorage.getItem('user_role') || '3'))
 const hasApprovePermission = computed(() => userRole.value === 1 || userRole.value === 2)
+const isAdmin = computed(() => userRole.value === 1)
 
 const stats = ref({
   total_orders: 0,
@@ -466,15 +467,26 @@ const saveOrder = async () => {
   }
 }
 
-const deleteOrder = async (id) => {
+const deleteOrder = async (id, status) => {
+  const isForceDelete = status === '已确认' || status === '已完成'
+  const confirmMessage = isForceDelete
+    ? `确定要强制删除这个${status}的销售订单吗？此操作不可恢复！`
+    : '确定要删除这个销售订单吗？'
+
   try {
-    await ElMessageBox.confirm('确定要删除这个销售订单吗？', '警告', {
+    await ElMessageBox.confirm(confirmMessage, isForceDelete ? '警告：强制删除' : '警告', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
-      type: 'warning'
+      type: isForceDelete ? 'error' : 'warning'
     })
-    await request.delete(`/api/sales-orders/${id}`)
-    ElMessage.success('订单已删除')
+
+    if (isForceDelete) {
+      await request.delete(`/api/sales-orders/${id}/force-delete`)
+      ElMessage.success('订单已强制删除')
+    } else {
+      await request.delete(`/api/sales-orders/${id}`)
+      ElMessage.success('订单已删除')
+    }
     await fetchOrders()
     await fetchStats()
   } catch (error) {
