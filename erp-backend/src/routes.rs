@@ -2,7 +2,7 @@ use axum::routing::get;
 use axum::{middleware, Router};
 use std::sync::Arc;
 use axum::routing::post;
-use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler, finance_handler, audit_handler, report_handler, user_management_handler, supplier_handler};
+use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler, finance_handler, audit_handler, report_handler, user_management_handler, supplier_handler, customer_handler};
 use crate::middleware::{auth_middleware, require_admin_middleware};
 use crate::state::AppState;
 
@@ -38,6 +38,21 @@ pub fn create_router(state: Arc<AppState>) -> Router{
 
     // 普通用户可访问的路由
     let protected_routes = Router::new()
+        // 客户管理
+        .route("/api/customers",
+               get(customer_handler::get_customers)
+                   .post(customer_handler::create_customer)
+        )
+        .route("/api/customers/stats",
+               get(customer_handler::get_customer_stats)
+        )
+        .route("/api/customers/{id}",
+               axum::routing::get(customer_handler::get_customer_by_id)
+                   .put(customer_handler::update_customer)
+                   .delete(customer_handler::delete_customer)
+        )
+
+        // 供应商管理
         .route("/api/suppliers",
                get(supplier_handler::get_suppliers)
                    .post(supplier_handler::create_supplier)
@@ -51,6 +66,7 @@ pub fn create_router(state: Arc<AppState>) -> Router{
                    .delete(supplier_handler::delete_supplier)
         )
 
+        // 物料管理
         .route("/api/items",
             get(item_handler::get_items)
                 .post(item_handler::create_item)
@@ -65,68 +81,27 @@ pub fn create_router(state: Arc<AppState>) -> Router{
             post(item_handler::adjust_stock)
         )
         
-        .route("/api/inventory",
+        // 库存管理
+        .route("/api/inventory/items",
                get(inventory_handler::get_inventory_list)
         )
         .route("/api/inventory/stats",
                get(inventory_handler::get_inventory_stats)
         )
-        .route("/api/inventory/{id}",
-               get(inventory_handler::get_item_inventory)
+        .route("/api/inventory/items/{id}",
+               axum::routing::get(inventory_handler::get_item_inventory)
         )
-        .route("/api/inventory/{id}/adjust",
+        .route("/api/inventory/items/{id}/adjust",
                post(inventory_handler::adjust_stock)
         )
-        .route("/api/inventory/{id}/history",
+        .route("/api/inventory/items/{id}/history",
                get(inventory_handler::get_adjustment_history)
         )
-        .route("/api/inventory/batch-adjust",
-               post(inventory_handler::batch_adjust_stock)
-        )
 
-        .route("/api/finance/transactions",
-               get(finance_handler::get_transactions)
-        )
-        .route("/api/finance/transactions",
-               post(finance_handler::create_transaction)
-        )
-        .route("/api/finance/stats",
-               get(finance_handler::get_financial_stats)
-        )
-        .route("/api/finance/category-summary/{transaction_type}",
-               get(finance_handler::get_category_summary)
-        )
-        .route("/api/finance/transactions/{id}",
-               axum::routing::delete(finance_handler::delete_transaction)
-        )
-        .route("/api/finance/auto/purchase/{order_id}",
-               post(finance_handler::auto_create_purchase_transaction)
-        )
-        .route("/api/finance/auto/sales/{order_id}",
-               post(finance_handler::auto_create_sales_transaction)
-        )
-
-        .route("/api/reports/export/purchase-orders",
-               get(report_handler::export_purchase_orders)
-        )
-        .route("/api/reports/export/sales-orders",
-               get(report_handler::export_sales_orders)
-        )
-        .route("/api/reports/export/inventory",
-               get(report_handler::export_inventory)
-        )
-        .route("/api/reports/export/financial-transactions",
-               get(report_handler::export_financial_transactions)
-        )
-        .route("/api/reports/export/audit-logs",
-               get(report_handler::export_audit_logs)
-        )
-
+        // 采购管理
         .route("/api/purchase-orders",
                get(purchase_handler::get_purchase_orders)
-        )
-        .route("/api/purchase-orders",
-               post(purchase_handler::create_purchase_order)
+                   .post(purchase_handler::create_purchase_order)
         )
         .route("/api/purchase-orders/stats",
                get(purchase_handler::get_purchase_order_stats)
@@ -149,11 +124,10 @@ pub fn create_router(state: Arc<AppState>) -> Router{
                get(purchase_handler::get_suppliers_for_purchase)
         )
 
+        // 销售管理
         .route("/api/sales-orders",
                get(sales_handler::get_sales_orders)
-        )
-        .route("/api/sales-orders",
-               post(sales_handler::create_sales_order)
+                   .post(sales_handler::create_sales_order)
         )
         .route("/api/sales-orders/stats",
                get(sales_handler::get_sales_order_stats)
@@ -172,8 +146,43 @@ pub fn create_router(state: Arc<AppState>) -> Router{
         .route("/api/sales-orders/{id}/cancel",
                post(sales_handler::cancel_sales_order)
         )
-        .route("/api/sales-orders/{id}/force-delete",
+        .route("/api/sales-orders/force-delete/{id}",
                axum::routing::delete(sales_handler::force_delete_sales_order)
+        )
+        .route("/api/sales-orders/customers",
+               get(sales_handler::get_customers_for_sales)
+        )
+
+        // 财务管理
+        .route("/api/transactions",
+               get(finance_handler::get_transactions)
+                   .post(finance_handler::create_transaction)
+        )
+        .route("/api/transactions/stats",
+               get(finance_handler::get_financial_stats)
+        )
+        .route("/api/transactions/categories",
+               get(finance_handler::get_category_summary)
+        )
+        .route("/api/transactions/{id}",
+               axum::routing::delete(finance_handler::delete_transaction)
+        )
+
+        // 报表导出
+        .route("/api/reports/export/purchase",
+               get(report_handler::export_purchase_orders)
+        )
+        .route("/api/reports/export/sales",
+               get(report_handler::export_sales_orders)
+        )
+        .route("/api/reports/export/inventory",
+               get(report_handler::export_inventory)
+        )
+        .route("/api/reports/export/finance",
+               get(report_handler::export_financial_transactions)
+        )
+        .route("/api/reports/export/audit",
+               get(report_handler::export_audit_logs)
         );
 
     Router::new()

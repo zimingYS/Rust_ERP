@@ -247,10 +247,10 @@ const fetchInventory = async () => {
       params.sku = searchForm.value.sku
     }
     if (searchForm.value.lowStock) {
-      params.low_stock = true
+      params.low_stock_only = true
     }
 
-    inventoryList.value = await request.get('/api/inventory', { params })
+    inventoryList.value = await request.get('/api/inventory/items', { params })
   } catch (e) {
     console.error('获取库存数据失败', e)
     ElMessage.error('获取库存数据失败')
@@ -302,7 +302,7 @@ const submitAdjustment = async () => {
   }
 
   try {
-    await request.post(`/api/inventory/${currentItem.value.id}/adjust`, adjustForm.value)
+    await request.post(`/api/inventory/items/${currentItem.value.id}/adjust`, adjustForm.value)
     ElMessage.success('库存调整成功')
     adjustDialogVisible.value = false
     await fetchInventory()
@@ -316,7 +316,7 @@ const submitAdjustment = async () => {
 const viewHistory = async (item) => {
   try {
     currentItem.value = item
-    adjustmentHistory.value = await request.get(`/api/inventory/${item.id}/history`)
+    adjustmentHistory.value = await request.get(`/api/inventory/items/${item.id}/history`)
     historyDialogVisible.value = true
   } catch (error) {
     ElMessage.error('获取调整记录失败')

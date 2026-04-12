@@ -10,6 +10,7 @@ import AuditLog from "../views/AuditLog.vue";
 import ReportExport from "../views/ReportExport.vue";
 import UserManagement from "../views/UserManagement.vue";
 import SupplierManagement from "../views/SupplierManagement.vue";
+import CustomerManagement from "../views/CustomerManagement.vue";
 import Layout from '../components/Layout.vue'
 
 const routes = [
@@ -51,6 +52,11 @@ const routes = [
                 path: 'suppliers',
                 name: 'SupplierManagement',
                 component: SupplierManagement
+            },
+            {
+                path: 'customers',
+                name: 'CustomerManagement',
+                component: CustomerManagement
             },
             {
                 path: 'inventory',

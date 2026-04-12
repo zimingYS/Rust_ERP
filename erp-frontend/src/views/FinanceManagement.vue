@@ -92,7 +92,7 @@
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
         <el-form :inline="true" :model="searchForm" style="margin: 0;">
           <el-form-item label="交易类型" style="margin-bottom: 0;">
-            <el-select v-model="searchForm.transaction_type" placeholder="请选择类型" clearable style="width: 150px;">
+            <el-select v-model="searchForm.type" placeholder="请选择类型" clearable style="width: 150px;">
               <el-option label="收入" value="收入" />
               <el-option label="支出" value="支出" />
             </el-select>
@@ -233,7 +233,7 @@ const stats = ref({
 })
 
 const searchForm = ref({
-  transaction_type: '',
+  type: '',
   category: '',
   dateRange: []
 })
@@ -250,8 +250,8 @@ const fetchTransactions = async () => {
   loading.value = true
   try {
     const params = {}
-    if (searchForm.value.transaction_type) {
-      params.transaction_type = searchForm.value.transaction_type
+    if (searchForm.value.type) {
+      params.transaction_type = searchForm.value.type
     }
     if (searchForm.value.category) {
       params.category = searchForm.value.category
@@ -261,7 +261,7 @@ const fetchTransactions = async () => {
       params.end_date = searchForm.value.dateRange[1]
     }
 
-    transactions.value = await request.get('/api/finance/transactions', { params })
+    transactions.value = await request.get('/api/transactions', { params })
   } catch (e) {
     console.error('获取交易数据失败', e)
     ElMessage.error('获取交易数据失败')
@@ -272,7 +272,7 @@ const fetchTransactions = async () => {
 
 const fetchStats = async () => {
   try {
-    stats.value = await request.get('/api/finance/stats')
+    stats.value = await request.get('/api/transactions/stats')
   } catch (e) {
     console.error('获取统计数据失败', e)
   }
@@ -284,7 +284,7 @@ const handleSearch = () => {
 
 const handleReset = () => {
   searchForm.value = {
-    transaction_type: '',
+    type: '',
     category: '',
     dateRange: []
   }
@@ -303,21 +303,21 @@ const openAddDialog = () => {
 }
 
 const saveTransaction = async () => {
-  if (!newTransaction.value.category) {
-    ElMessage.warning('请输入分类')
+  if (!newTransaction.value.transaction_type) {
+    ElMessage.warning('请选择交易类型')
     return
   }
-  if (newTransaction.value.amount <= 0) {
-    ElMessage.warning('金额必须大于0')
+  if (!newTransaction.value.amount || newTransaction.value.amount <= 0) {
+    ElMessage.warning('请输入正确的金额')
     return
   }
 
   try {
-    await request.post('/api/finance/transactions', newTransaction.value)
-    ElMessage.success('创建成功!')
+    await request.post('/api/transactions', newTransaction.value)
+    ElMessage.success('交易记录添加成功')
     dialogVisible.value = false
-    fetchTransactions()
-    fetchStats()
+    await fetchTransactions()
+    await fetchStats()
   } catch (error) {
     const errorMsg = error.response?.data?.error || '操作失败'
     ElMessage.error(errorMsg)
@@ -331,7 +331,7 @@ const deleteTransaction = async (id) => {
       cancelButtonText: '取消',
       type: 'warning'
     })
-    await request.delete(`/api/finance/transactions/${id}`)
+    await request.delete(`/api/transactions/${id}`)
     ElMessage.success('删除成功')
     fetchTransactions()
     fetchStats()

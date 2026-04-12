@@ -8,7 +8,7 @@ use axum::Json;
 use chrono::Local;
 use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait};
 use serde::{Deserialize, Serialize};
-use crate::entities::{sales_order, sales_order_item, financial_transaction, items, inventory_adjustment};
+use crate::entities::{sales_order, sales_order_item, financial_transaction, items, inventory_adjustment, customer};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
 use crate::auth::UserClaims;
@@ -473,4 +473,31 @@ pub async fn force_delete_sales_order(
     } else {
         Err(AppError::NotFound(format!("销售订单 {} 不存在", id)))
     }
+}
+
+#[derive(Serialize)]
+pub struct CustomerSimpleInfo {
+    pub id: i32,
+    pub name: String,
+    pub contact_person: Option<String>,
+    pub phone: Option<String>,
+}
+
+pub async fn get_customers_for_sales(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<CustomerSimpleInfo>>, AppError> {
+    let customers = customer::Entity::find()
+        .filter(customer::Column::Status.eq("启用"))
+        .order_by_asc(customer::Column::Name)
+        .all(&state.db)
+        .await?;
+
+    let result = customers.iter().map(|c| CustomerSimpleInfo {
+        id: c.id,
+        name: c.name.clone(),
+        contact_person: c.contact_person.clone(),
+        phone: c.phone.clone(),
+    }).collect();
+
+    Ok(Json(result))
 }

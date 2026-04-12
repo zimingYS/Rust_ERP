@@ -34,6 +34,11 @@
           <template #title>供应商管理</template>
         </el-menu-item>
 
+        <el-menu-item index="/customers">
+          <el-icon><Avatar /></el-icon>
+          <template #title>客户管理</template>
+        </el-menu-item>
+
         <el-menu-item index="/inventory">
           <el-icon><Box /></el-icon>
           <template #title>库存管理</template>
@@ -115,6 +120,7 @@ import {
   Notebook,
   DataAnalysis,
   User,
+  Avatar,
   Fold,
   Expand,
   ArrowDown,
@@ -140,6 +146,7 @@ const pageTitle = computed(() => {
     '/purchase': '采购管理',
     '/sales': '销售管理',
     '/suppliers': '供应商管理',
+    '/customers': '客户管理',
     '/inventory': '库存管理',
     '/finance': '财务管理',
     '/audit': '日志审计',

@@ -11,6 +11,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub order_number: String,
+    pub customer_id: Option<i32>,
     pub customer: String,
     pub order_date: String,
     pub delivery_date: String,
@@ -29,11 +30,23 @@ pub enum Relation {
         to = "super::user::Column::Id"
     )]
     User,
+    #[sea_orm(
+        belongs_to = "super::customer::Entity",
+        from = "Column::CustomerId",
+        to = "super::customer::Column::Id"
+    )]
+    Customer,
 }
 
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
+    }
+}
+
+impl Related<super::customer::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Customer.def()
     }
 }
 

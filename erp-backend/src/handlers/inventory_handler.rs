@@ -216,6 +216,7 @@ pub async fn get_adjustment_history(
     Ok(Json(adjustments))
 }
 
+#[allow(dead_code)]
 pub async fn batch_adjust_stock(
     State(_state): State<Arc<AppState>>,
     Extension(_claims): Extension<UserClaims>,
