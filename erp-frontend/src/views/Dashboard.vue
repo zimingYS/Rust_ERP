@@ -135,7 +135,7 @@
             {{ scope.row.description || '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="350" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="scope">
             <div style="display: flex; gap: 8px;">
               <el-button size="small" @click="handleEdit(scope.row)">
@@ -144,19 +144,11 @@
               </el-button>
               <el-button
                 size="small"
-                type="success"
-                @click="openStockDialog(scope.row)"
-              >
-                <el-icon><Refresh /></el-icon>
-                调库存
-              </el-button>
-              <el-button
-                size="small"
-                type="warning"
-                @click="goToInventory(scope.row.id)"
+                type="primary"
+                @click="goToInventoryAdjust(scope.row)"
               >
                 <el-icon><Box /></el-icon>
-                查库存
+                库存管理
               </el-button>
               <el-button type="danger" size="small" @click="deleteItem(scope.row.id)">
                 <el-icon><Delete /></el-icon>
@@ -193,8 +185,30 @@
         <el-form-item label="SKU编号" prop="sku">
           <el-input v-model="newItem.sku" placeholder="请输入SKU编号" />
         </el-form-item>
-        <el-form-item label="当前库存" prop="stock">
+        <el-form-item v-if="!isEdit" label="初始库存" prop="stock">
           <el-input-number v-model="newItem.stock" :min="0" style="width: 100%;" />
+          <div style="color: #909399; font-size: 12px; margin-top: 5px;">
+            提示：创建后请通过"库存管理"功能调整库存
+          </div>
+        </el-form-item>
+        <el-form-item v-else label="当前库存">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <el-tag size="large" :type="getStockTagType(newItem.stock, newItem.min_stock)" effect="dark">
+              {{ newItem.stock }}
+            </el-tag>
+            <el-button
+              type="primary"
+              size="small"
+              @click="goToInventoryFromDialog"
+              :icon="Box"
+            >
+              调整库存
+            </el-button>
+          </div>
+          <div style="color: #909399; font-size: 12px; margin-top: 8px; line-height: 1.6;">
+            <el-icon style="vertical-align: middle;"><InfoFilled /></el-icon>
+            编辑模式下不能直接修改库存，请点击右侧按钮进行专业的库存调整操作
+          </div>
         </el-form-item>
         <el-form-item label="单位" prop="unit">
           <el-input v-model="newItem.unit" placeholder="如：个、件、kg" />
@@ -216,51 +230,6 @@
         <el-button type="primary" @click="saveItem" :loading="submitLoading">确认提交</el-button>
       </template>
     </el-dialog>
-
-    <el-dialog
-      v-model="stockDialogVisible"
-      title="库存调整"
-      width="500px"
-      :close-on-click-modal="false"
-    >
-      <el-form :model="stockAdjustment" label-width="100px">
-        <el-form-item label="物料名称">
-          <el-input v-model="currentItem.name" disabled />
-        </el-form-item>
-        <el-form-item label="当前库存">
-          <el-tag size="large">{{ currentItem.stock }}</el-tag>
-        </el-form-item>
-        <el-form-item label="调整数量" required>
-          <el-input-number
-            v-model="stockAdjustment.adjustment"
-            style="width: 100%;"
-            placeholder="正数增加，负数减少"
-          />
-          <div style="color: #909399; font-size: 12px; margin-top: 5px;">
-            提示：输入正数增加库存，负数减少库存
-          </div>
-        </el-form-item>
-        <el-form-item label="调整原因">
-          <el-input
-            v-model="stockAdjustment.reason"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入调整原因（可选）"
-          />
-        </el-form-item>
-        <el-form-item label="调整后库存">
-          <el-tag size="large" :type="getAdjustedStockType()">
-            {{ currentItem.stock + stockAdjustment.adjustment }}
-          </el-tag>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="stockDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveStockAdjustment" :loading="stockSubmitLoading">
-          确认调整
-        </el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -268,16 +237,14 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus, Edit, Delete, Refresh, Ticket, ShoppingCart, Sell, Box, Coin } from '@element-plus/icons-vue'
+import { Search, Plus, Edit, Delete, Ticket, ShoppingCart, Sell, Box, Coin, InfoFilled } from '@element-plus/icons-vue'
 import request from '../utils/request'
 
 const router = useRouter()
 const items = ref([])
 const loading = ref(false)
 const submitLoading = ref(false)
-const stockSubmitLoading = ref(false)
 const dialogVisible = ref(false)
-const stockDialogVisible = ref(false)
 const isEdit = ref(false)
 const itemFormRef = ref(null)
 const selectedIds = ref([])
@@ -300,17 +267,6 @@ const newItem = reactive({
   description: ''
 })
 
-const currentItem = reactive({
-  id: 0,
-  name: '',
-  stock: 0
-})
-
-const stockAdjustment = reactive({
-  adjustment: 0,
-  reason: ''
-})
-
 const rules = {
   name: [{ required: true, message: '请输入物料名称', trigger: 'blur' }],
   sku: [{ required: true, message: '请输入SKU编号', trigger: 'blur' }],
@@ -321,8 +277,15 @@ const goToPage = (path) => {
   router.push(path)
 }
 
-const goToInventory = (itemId) => {
-  router.push(`/inventory?id=${itemId}`)
+const goToInventoryAdjust = (item) => {
+  router.push(`/inventory?id=${item.id}`)
+}
+
+const goToInventoryFromDialog = () => {
+  dialogVisible.value = false
+  setTimeout(() => {
+    router.push(`/inventory?id=${newItem.id}`)
+  }, 300)
 }
 
 const loadItems = async () => {
@@ -417,7 +380,14 @@ const saveItem = async () => {
     submitLoading.value = true
 
     if (isEdit.value) {
-      await request.put(`/api/items/${newItem.id}`, newItem)
+      const updateData = {
+        name: newItem.name,
+        sku: newItem.sku,
+        unit: newItem.unit,
+        min_stock: newItem.min_stock,
+        description: newItem.description
+      }
+      await request.put(`/api/items/${newItem.id}`, updateData)
       ElMessage.success('更新成功')
     } else {
       await request.post('/api/items', newItem)
@@ -453,48 +423,22 @@ const deleteItem = async (id) => {
   }
 }
 
-const openStockDialog = (row) => {
-  Object.assign(currentItem, row)
-  stockAdjustment.adjustment = 0
-  stockAdjustment.reason = ''
-  stockDialogVisible.value = true
-}
-
-const getAdjustedStockType = () => {
-  const adjustedStock = currentItem.stock + stockAdjustment.adjustment
-  if (adjustedStock < 0) return 'danger'
-  if (adjustedStock === 0) return 'info'
-  if (adjustedStock <= currentItem.min_stock) return 'warning'
+const getStockType = (item) => {
+  if (item.stock === 0) return 'danger'
+  const minStock = item.min_stock || 0
+  if (item.stock <= minStock) return 'warning'
   return 'success'
 }
 
-const saveStockAdjustment = async () => {
-  if (stockAdjustment.adjustment === 0) {
-    ElMessage.warning('调整数量不能为0')
-    return
-  }
-
-  try {
-    stockSubmitLoading.value = true
-    await request.post(`/api/items/${currentItem.id}/stock`, stockAdjustment)
-    ElMessage.success('库存调整成功')
-    stockDialogVisible.value = false
-    loadItems()
-  } catch (error) {
-    console.error('库存调整失败:', error)
-  } finally {
-    stockSubmitLoading.value = false
-  }
-}
-
-const getStockType = (row) => {
-  if (row.stock === 0) return 'danger'
-  if (row.min_stock && row.stock <= row.min_stock) return 'warning'
+const getStockTagType = (stock, minStock) => {
+  if (stock === 0) return 'danger'
+  if (minStock && stock <= minStock) return 'warning'
   return 'success'
 }
 
 const handleSizeChange = (val) => {
   pagination.pageSize = val
+  pagination.page = 1
   loadItems()
 }
 
@@ -504,7 +448,12 @@ const handlePageChange = (val) => {
 }
 
 onMounted(() => {
-  loadItems()
+  const token = localStorage.getItem('erp_token')
+  if (!token) {
+    router.push('/login')
+  } else {
+    loadItems()
+  }
 })
 </script>
 

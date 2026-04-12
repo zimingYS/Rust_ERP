@@ -45,38 +45,47 @@
 
     <!-- 搜索和筛选 -->
     <el-card style="margin-bottom: 20px;">
-      <el-form :inline="true" :model="searchForm">
-        <el-form-item label="用户名">
-          <el-input v-model="searchForm.username" placeholder="请输入用户名" clearable />
-        </el-form-item>
-        <el-form-item label="模块">
-          <el-select v-model="searchForm.module" placeholder="请选择模块" clearable style="width: 150px;">
-            <el-option label="采购管理" value="采购管理" />
-            <el-option label="销售管理" value="销售管理" />
-            <el-option label="库存管理" value="库存管理" />
-            <el-option label="财务管理" value="财务管理" />
-            <el-option label="物料管理" value="物料管理" />
-            <el-option label="用户管理" value="用户管理" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="操作">
-          <el-input v-model="searchForm.action" placeholder="请输入操作" clearable />
-        </el-form-item>
-        <el-form-item label="日期范围">
-          <el-date-picker
-            v-model="searchForm.dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            value-format="YYYY-MM-DD"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </el-form-item>
-      </el-form>
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <el-form :inline="true" :model="searchForm" style="margin: 0;">
+          <el-form-item label="用户名" style="margin-bottom: 0;">
+            <el-input v-model="searchForm.username" placeholder="请输入用户名" clearable style="width: 180px;" />
+          </el-form-item>
+          <el-form-item label="模块" style="margin-bottom: 0;">
+            <el-select v-model="searchForm.module" placeholder="请选择模块" clearable style="width: 150px;">
+              <el-option label="采购管理" value="采购管理" />
+              <el-option label="销售管理" value="销售管理" />
+              <el-option label="库存管理" value="库存管理" />
+              <el-option label="财务管理" value="财务管理" />
+              <el-option label="物料管理" value="物料管理" />
+              <el-option label="用户管理" value="用户管理" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="操作" style="margin-bottom: 0;">
+            <el-input v-model="searchForm.action" placeholder="请输入操作" clearable style="width: 180px;" />
+          </el-form-item>
+          <el-form-item label="日期范围" style="margin-bottom: 0;">
+            <el-date-picker
+              v-model="searchForm.dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              value-format="YYYY-MM-DD"
+              style="width: 240px;"
+            />
+          </el-form-item>
+        </el-form>
+        <div style="display: flex; gap: 8px;">
+          <el-button type="primary" @click="handleSearch">
+            <el-icon><Search /></el-icon>
+            查询
+          </el-button>
+          <el-button @click="handleReset">
+            <el-icon><Refresh /></el-icon>
+            重置
+          </el-button>
+        </div>
+      </div>
     </el-card>
 
     <!-- 日志表格 -->
@@ -112,7 +121,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import request from '../utils/request'
 import { ElMessage } from 'element-plus'
-import { Document, User, Menu } from '@element-plus/icons-vue'
+import { Document, User, Menu, Search, Refresh } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const auditLogs = ref([])

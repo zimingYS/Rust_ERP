@@ -89,32 +89,44 @@
 
     <!-- 搜索和筛选 -->
     <el-card style="margin-bottom: 20px;">
-      <el-form :inline="true" :model="searchForm">
-        <el-form-item label="交易类型">
-          <el-select v-model="searchForm.transaction_type" placeholder="请选择类型" clearable style="width: 150px;">
-            <el-option label="收入" value="收入" />
-            <el-option label="支出" value="支出" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="分类">
-          <el-input v-model="searchForm.category" placeholder="请输入分类" clearable />
-        </el-form-item>
-        <el-form-item label="日期范围">
-          <el-date-picker
-            v-model="searchForm.dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            value-format="YYYY-MM-DD"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
-          <el-button type="success" @click="openAddDialog">新增交易</el-button>
-        </el-form-item>
-      </el-form>
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <el-form :inline="true" :model="searchForm" style="margin: 0;">
+          <el-form-item label="交易类型" style="margin-bottom: 0;">
+            <el-select v-model="searchForm.transaction_type" placeholder="请选择类型" clearable style="width: 150px;">
+              <el-option label="收入" value="收入" />
+              <el-option label="支出" value="支出" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="分类" style="margin-bottom: 0;">
+            <el-input v-model="searchForm.category" placeholder="请输入分类" clearable style="width: 180px;" />
+          </el-form-item>
+          <el-form-item label="日期范围" style="margin-bottom: 0;">
+            <el-date-picker
+              v-model="searchForm.dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              value-format="YYYY-MM-DD"
+              style="width: 240px;"
+            />
+          </el-form-item>
+        </el-form>
+        <div style="display: flex; gap: 8px;">
+          <el-button type="primary" @click="handleSearch">
+            <el-icon><Search /></el-icon>
+            查询
+          </el-button>
+          <el-button @click="handleReset">
+            <el-icon><Refresh /></el-icon>
+            重置
+          </el-button>
+          <el-button type="success" @click="openAddDialog">
+            <el-icon><Plus /></el-icon>
+            新增交易
+          </el-button>
+        </div>
+      </div>
     </el-card>
 
     <!-- 交易表格 -->
@@ -203,7 +215,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { TrendCharts, ShoppingCart, Coin, Document } from '@element-plus/icons-vue'
+import { TrendCharts, ShoppingCart, Coin, Document, Search, Refresh, Plus } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const transactions = ref([])

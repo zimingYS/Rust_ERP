@@ -43,26 +43,37 @@
     </el-row>
 
     <el-card style="margin-bottom: 20px;">
-      <el-form :inline="true" :model="searchForm">
-        <el-form-item label="用户名">
-          <el-input v-model="searchForm.username" placeholder="请输入用户名" clearable />
-        </el-form-item>
-        <el-form-item label="角色">
-          <el-select v-model="searchForm.role_id" placeholder="请选择角色" clearable style="width: 150px;">
-            <el-option
-              v-for="role in roles"
-              :key="role.id"
-              :label="role.name"
-              :value="role.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
-          <el-button type="success" @click="openAddDialog">新增用户</el-button>
-        </el-form-item>
-      </el-form>
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <el-form :inline="true" :model="searchForm" style="margin: 0;">
+          <el-form-item label="用户名" style="margin-bottom: 0;">
+            <el-input v-model="searchForm.username" placeholder="请输入用户名" clearable style="width: 200px;" />
+          </el-form-item>
+          <el-form-item label="角色" style="margin-bottom: 0;">
+            <el-select v-model="searchForm.role_id" placeholder="请选择角色" clearable style="width: 150px;">
+              <el-option
+                v-for="role in roles"
+                :key="role.id"
+                :label="role.name"
+                :value="role.id"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
+        <div style="display: flex; gap: 8px;">
+          <el-button type="primary" @click="handleSearch">
+            <el-icon><Search /></el-icon>
+            查询
+          </el-button>
+          <el-button @click="handleReset">
+            <el-icon><Refresh /></el-icon>
+            重置
+          </el-button>
+          <el-button type="success" @click="openAddDialog">
+            <el-icon><Plus /></el-icon>
+            新增用户
+          </el-button>
+        </div>
+      </div>
     </el-card>
 
     <el-table :data="users" border style="width: 100%" v-loading="loading">
@@ -147,7 +158,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { User, UserFilled, Avatar } from '@element-plus/icons-vue'
+import { User, UserFilled, Avatar, Search, Refresh, Plus } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const users = ref([])

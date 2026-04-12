@@ -58,21 +58,29 @@
 
     <!-- 搜索和筛选 -->
     <el-card style="margin-bottom: 20px;">
-      <el-form :inline="true" :model="searchForm">
-        <el-form-item label="关键字">
-          <el-input v-model="searchForm.keyword" placeholder="请输入物料名称" clearable />
-        </el-form-item>
-        <el-form-item label="SKU">
-          <el-input v-model="searchForm.sku" placeholder="请输入SKU" clearable />
-        </el-form-item>
-        <el-form-item>
-          <el-checkbox v-model="searchForm.lowStock">仅显示低库存</el-checkbox>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </el-form-item>
-      </el-form>
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <el-form :inline="true" :model="searchForm" style="margin: 0;">
+          <el-form-item label="关键字" style="margin-bottom: 0;">
+            <el-input v-model="searchForm.keyword" placeholder="请输入物料名称" clearable style="width: 200px;" />
+          </el-form-item>
+          <el-form-item label="SKU" style="margin-bottom: 0;">
+            <el-input v-model="searchForm.sku" placeholder="请输入SKU" clearable style="width: 180px;" />
+          </el-form-item>
+          <el-form-item style="margin-bottom: 0;">
+            <el-checkbox v-model="searchForm.lowStock">仅显示低库存</el-checkbox>
+          </el-form-item>
+        </el-form>
+        <div style="display: flex; gap: 8px;">
+          <el-button type="primary" @click="handleSearch">
+            <el-icon><Search /></el-icon>
+            查询
+          </el-button>
+          <el-button @click="handleReset">
+            <el-icon><Refresh /></el-icon>
+            重置
+          </el-button>
+        </div>
+      </div>
     </el-card>
 
     <!-- 库存表格 -->
@@ -180,12 +188,13 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import request from '../utils/request'
 import { ElMessage } from 'element-plus'
-import { Box, Warning, CircleClose, TrendCharts } from '@element-plus/icons-vue'
+import { Box, Warning, CircleClose, TrendCharts, Search, Refresh } from '@element-plus/icons-vue'
 
 const router = useRouter()
+const route = useRoute()
 const inventoryList = ref([])
 const loading = ref(false)
 const adjustDialogVisible = ref(false)
@@ -342,6 +351,18 @@ onMounted(() => {
   } else {
     fetchInventory()
     fetchStats()
+
+    // 如果 URL 中有 id 参数，自动打开该物料的库存调整对话框
+    const itemId = route.query.id
+    if (itemId) {
+      // 等待数据加载完成后，找到对应的物料并打开对话框
+      setTimeout(() => {
+        const targetItem = inventoryList.value.find(item => item.id === parseInt(itemId))
+        if (targetItem) {
+          openAdjustDialog(targetItem)
+        }
+      }, 500)
+    }
   }
 })
 </script>
