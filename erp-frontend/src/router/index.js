@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
-import Dashboard from '../views/Dashboard.vue'
+import HomeDashboard from '../views/HomeDashboard.vue'
+import ProductManagement from '../views/ProductManagement.vue'
 import PurchaseManagement from "../views/PurchaseManagement.vue";
 import SalesManagement from "../views/SalesManagement.vue";
 import InventoryManagement from "../views/InventoryManagement.vue";
@@ -14,10 +15,6 @@ import CustomerManagement from "../views/CustomerManagement.vue";
 import Layout from '../components/Layout.vue'
 
 const routes = [
-    {
-        path: '/',
-        redirect: '/login'
-    },
     {
         path: '/login',
         name: 'Login',
@@ -34,9 +31,18 @@ const routes = [
         meta: { requiresAuth: true },
         children: [
             {
-                path: 'dashboard',
-                name: 'Dashboard',
-                component: Dashboard
+                path: '',
+                redirect: '/home'
+            },
+            {
+                path: 'home',
+                name: 'HomeDashboard',
+                component: HomeDashboard
+            },
+            {
+                path: 'products',
+                name: 'ProductManagement',
+                component: ProductManagement
             },
             {
                 path: 'purchase',
@@ -69,21 +75,19 @@ const routes = [
                 component: FinanceManagement
             },
             {
-                path: 'audit',
-                name: 'AuditLog',
-                component: AuditLog,
-                meta: { requiresAdmin: true }
-            },
-            {
                 path: 'reports',
                 name: 'ReportExport',
                 component: ReportExport
             },
             {
+                path: 'audit',
+                name: 'AuditLog',
+                component: AuditLog
+            },
+            {
                 path: 'users',
                 name: 'UserManagement',
-                component: UserManagement,
-                meta: { requiresAdmin: true }
+                component: UserManagement
             }
         ]
     }
@@ -94,21 +98,10 @@ const router = createRouter({
     routes
 })
 
-// 路由守卫
 router.beforeEach((to, from, next) => {
     const token = localStorage.getItem('erp_token')
-    const userRole = parseInt(localStorage.getItem('user_role') || '2')
-
     if (to.meta.requiresAuth && !token) {
         next('/login')
-    } else if (to.meta.requiresAdmin && userRole !== 1) {
-        // 需要管理员权限但用户不是管理员
-        import('element-plus').then(({ ElMessage }) => {
-            ElMessage.error('您没有权限访问此页面')
-        })
-        next('/dashboard')
-    } else if ((to.path === '/login' || to.path === '/register') && token) {
-        next('/dashboard')
     } else {
         next()
     }

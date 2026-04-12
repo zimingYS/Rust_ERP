@@ -1,5 +1,6 @@
 <template>
   <div style="padding: 20px;">
+    <!-- 快捷入口卡片 -->
     <el-row :gutter="20" style="margin-bottom: 20px;">
       <el-col :span="6">
         <el-card shadow="hover" class="quick-access-card" @click="goToPage('/purchase')">
@@ -55,12 +56,13 @@
       </el-col>
     </el-row>
 
+    <!-- 产品列表 -->
     <el-card shadow="never" class="search-card">
       <div class="table-toolbar">
         <div style="display: flex; gap: 10px; flex: 1;">
           <el-input
             v-model="searchKeyword"
-            placeholder="搜索物料名称"
+            placeholder="搜索产品名称"
             clearable
             style="width: 250px;"
             @clear="handleSearch"
@@ -97,7 +99,7 @@
           </el-button>
           <el-button type="primary" @click="openAddDialog">
             <el-icon><Plus /></el-icon>
-            新增物料
+            新增产品
           </el-button>
         </div>
       </div>
@@ -111,7 +113,7 @@
       >
         <el-table-column type="selection" width="55" />
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="name" label="物料名称" min-width="150" />
+        <el-table-column prop="name" label="产品名称" min-width="150" />
         <el-table-column prop="sku" label="SKU编号" width="150" />
         <el-table-column prop="stock" label="当前库存" width="120" align="center">
           <template #default="scope">
@@ -174,13 +176,13 @@
 
     <el-dialog
       v-model="dialogVisible"
-      :title="isEdit ? '编辑物料' : '添加新物料'"
+      :title="isEdit ? '编辑产品' : '添加新产品'"
       width="600px"
       :close-on-click-modal="false"
     >
       <el-form :model="newItem" :rules="rules" ref="itemFormRef" label-width="100px">
-        <el-form-item label="物料名称" prop="name">
-          <el-input v-model="newItem.name" placeholder="请输入物料名称" />
+        <el-form-item label="产品名称" prop="name">
+          <el-input v-model="newItem.name" placeholder="请输入产品名称" />
         </el-form-item>
         <el-form-item label="SKU编号" prop="sku">
           <el-input v-model="newItem.sku" placeholder="请输入SKU编号" />
@@ -221,7 +223,7 @@
             v-model="newItem.description"
             type="textarea"
             :rows="3"
-            placeholder="请输入物料描述"
+            placeholder="请输入产品描述"
           />
         </el-form-item>
       </el-form>
@@ -268,7 +270,7 @@ const newItem = reactive({
 })
 
 const rules = {
-  name: [{ required: true, message: '请输入物料名称', trigger: 'blur' }],
+  name: [{ required: true, message: '请输入产品名称', trigger: 'blur' }],
   sku: [{ required: true, message: '请输入SKU编号', trigger: 'blur' }],
   stock: [{ required: true, message: '请输入库存数量', trigger: 'blur' }]
 }
@@ -308,7 +310,7 @@ const loadItems = async () => {
       pagination.total = res.data.total
     }
   } catch (error) {
-    console.error('加载物料列表失败:', error)
+    console.error('加载产品列表失败:', error)
   } finally {
     loading.value = false
   }
@@ -333,7 +335,7 @@ const handleSelectionChange = (selection) => {
 const handleBatchDelete = async () => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除选中的 ${selectedIds.value.length} 个物料吗？`,
+      `确定要删除选中的 ${selectedIds.value.length} 个产品吗？`,
       '警告',
       {
         confirmButtonText: '确定',
@@ -407,7 +409,7 @@ const saveItem = async () => {
 
 const deleteItem = async (id) => {
   try {
-    await ElMessageBox.confirm('确定要删除该物料吗？', '警告', {
+    await ElMessageBox.confirm('确定要删除这个产品吗？', '警告', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning'

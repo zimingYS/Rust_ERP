@@ -2,7 +2,7 @@ use axum::routing::get;
 use axum::{middleware, Router};
 use std::sync::Arc;
 use axum::routing::post;
-use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler, finance_handler, audit_handler, report_handler, user_management_handler, supplier_handler, customer_handler, notification_handler};
+use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler, finance_handler, audit_handler, report_handler, user_management_handler, supplier_handler, customer_handler, notification_handler, dashboard_handler};
 use crate::middleware::{auth_middleware, require_admin_middleware};
 use crate::state::AppState;
 
@@ -216,6 +216,26 @@ pub fn create_router(state: Arc<AppState>) -> Router{
         )
         .route("/api/notifications/{id}",
                axum::routing::delete(notification_handler::delete_notification)
+        )
+
+        // 仪表盘数据
+        .route("/api/dashboard/stats",
+               get(dashboard_handler::get_dashboard_stats)
+        )
+        .route("/api/dashboard/sales-trend",
+               get(dashboard_handler::get_sales_trend)
+        )
+        .route("/api/dashboard/purchase-trend",
+               get(dashboard_handler::get_purchase_trend)
+        )
+        .route("/api/dashboard/inventory-distribution",
+               get(dashboard_handler::get_inventory_distribution)
+        )
+        .route("/api/dashboard/top-products",
+               get(dashboard_handler::get_top_products)
+        )
+        .route("/api/dashboard/financial-summary",
+               get(dashboard_handler::get_financial_summary)
         );
 
     Router::new()

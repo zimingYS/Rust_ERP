@@ -98,7 +98,7 @@ const handleLogin = async () => {
           }
 
           ElMessage.success('登录成功！')
-          router.push('/dashboard')
+          router.push('/home')
         } else {
           ElMessage.error('登录失败：未获取到令牌')
         }

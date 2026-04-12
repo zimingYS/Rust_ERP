@@ -13,3 +13,4 @@ pub(crate) mod user_management_handler;
 pub(crate) mod supplier_handler;
 pub(crate) mod customer_handler;
 pub(crate) mod notification_handler;
+pub(crate) mod dashboard_handler;

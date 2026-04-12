@@ -14,9 +14,14 @@
           active-text-color="#409EFF"
           router
       >
-        <el-menu-item index="/dashboard">
-          <el-icon><HomeFilled /></el-icon>
-          <template #title>物料管理</template>
+        <el-menu-item index="/home">
+          <el-icon><DataLine /></el-icon>
+          <template #title>数据概览</template>
+        </el-menu-item>
+
+        <el-menu-item index="/products">
+          <el-icon><Box /></el-icon>
+          <template #title>产品管理</template>
         </el-menu-item>
 
         <el-menu-item index="/purchase">
@@ -191,13 +196,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
-  HomeFilled,
+  DataLine,
+  Box,
   ShoppingCart,
   Sell,
-  Box,
   Coin,
   Notebook,
   DataAnalysis,
@@ -206,15 +211,9 @@ import {
   Fold,
   Expand,
   ArrowDown,
-  SwitchButton,
-  Bell,
-  Warning,
-  CircleCheck,
-  InfoFilled,
-  SuccessFilled
+  SwitchButton
 } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
-import request from '../utils/request'
 
 const router = useRouter()
 const route = useRoute()
@@ -241,7 +240,8 @@ const activeMenu = computed(() => route.path)
 
 const pageTitle = computed(() => {
   const titles = {
-    '/dashboard': '物料管理',
+    '/home': '数据概览',
+    '/products': '产品管理',
     '/purchase': '采购管理',
     '/sales': '销售管理',
     '/suppliers': '供应商管理',
@@ -443,11 +443,6 @@ onMounted(() => {
   }
 })
 
-onUnmounted(() => {
-  if (pollingTimer) {
-    clearInterval(pollingTimer)
-  }
-})
 </script>
 
 <style scoped>
