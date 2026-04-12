@@ -11,6 +11,15 @@ use crate::entities::{workflow_instance, workflow_step, user};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
 use crate::auth::UserClaims;
+use crate::constants::{
+    WORKFLOW_STATUS_PENDING,
+    WORKFLOW_STATUS_WAITING,
+    WORKFLOW_STATUS_APPROVED,
+    WORKFLOW_STATUS_REJECTED,
+    WORKFLOW_STATUS_COMPLETED,
+    ROLE_SUPERVISOR,
+    ROLE_ADMIN,
+};
 
 #[derive(Deserialize)]
 pub struct StartWorkflowRequest {
@@ -114,8 +123,8 @@ async fn create_workflow_steps(
                 instance_id: Set(instance_id),
                 step_name: Set("主管审批".to_string()),
                 step_order: Set(1),
-                approver_role_id: Set(Some(2)), // 主管角色
-                status: Set("待处理".to_string()),
+                approver_role_id: Set(Some(ROLE_SUPERVISOR)),
+                status: Set(WORKFLOW_STATUS_PENDING.to_string()),
                 created_at: Set(now),
                 updated_at: Set(now),
                 ..Default::default()
@@ -127,8 +136,8 @@ async fn create_workflow_steps(
                 instance_id: Set(instance_id),
                 step_name: Set("经理审批".to_string()),
                 step_order: Set(2),
-                approver_role_id: Set(Some(1)), // 管理员/经理角色
-                status: Set("等待中".to_string()),
+                approver_role_id: Set(Some(ROLE_ADMIN)),
+                status: Set(WORKFLOW_STATUS_WAITING.to_string()),
                 created_at: Set(now),
                 updated_at: Set(now),
                 ..Default::default()
@@ -142,8 +151,8 @@ async fn create_workflow_steps(
                 instance_id: Set(instance_id),
                 step_name: Set("销售确认".to_string()),
                 step_order: Set(1),
-                approver_role_id: Set(Some(2)),
-                status: Set("待处理".to_string()),
+                approver_role_id: Set(Some(ROLE_SUPERVISOR)),
+                status: Set(WORKFLOW_STATUS_PENDING.to_string()),
                 created_at: Set(now),
                 updated_at: Set(now),
                 ..Default::default()
@@ -211,7 +220,11 @@ pub async fn approve_step(
 
     // 更新步骤状态
     let mut step_model: workflow_step::ActiveModel = step.into();
-    step_model.status = Set(if req.action == "approve" { "已通过".to_string() } else { "已拒绝".to_string() });
+    step_model.status = Set(if req.action == "approve" {
+        WORKFLOW_STATUS_APPROVED.to_string()
+    } else {
+        WORKFLOW_STATUS_REJECTED.to_string()
+    });
     step_model.action = Set(Some(req.action.clone()));
     step_model.comment = Set(req.comment.clone());
     step_model.approved_at = Set(Some(now));
@@ -227,8 +240,8 @@ pub async fn approve_step(
     // 如果拒绝，直接结束工作流
     if req.action == "reject" {
         let mut instance_model: workflow_instance::ActiveModel = instance.clone().into();
-        instance_model.status = Set("已拒绝".to_string());
-        instance_model.current_step = Set("已拒绝".to_string());
+        instance_model.status = Set(WORKFLOW_STATUS_REJECTED.to_string());
+        instance_model.current_step = Set(WORKFLOW_STATUS_REJECTED.to_string());
         instance_model.completed_at = Set(Some(now));
         instance_model.updated_at = Set(now);
         instance_model.update(&state.db).await?;
@@ -242,7 +255,7 @@ pub async fn approve_step(
     // 检查是否还有下一步
     let next_step = workflow_step::Entity::find()
         .filter(workflow_step::Column::InstanceId.eq(instance.id))
-        .filter(workflow_step::Column::Status.eq("等待中"))
+        .filter(workflow_step::Column::Status.eq(WORKFLOW_STATUS_WAITING))
         .order_by_asc(workflow_step::Column::StepOrder)
         .one(&state.db)
         .await?;
@@ -250,7 +263,7 @@ pub async fn approve_step(
     if let Some(next) = next_step {
         // 激活下一步
         let mut next_model: workflow_step::ActiveModel = next.clone().into();
-        next_model.status = Set("待处理".to_string());
+        next_model.status = Set(WORKFLOW_STATUS_PENDING.to_string());
         next_model.updated_at = Set(now);
         next_model.update(&state.db).await?;
 
@@ -262,8 +275,8 @@ pub async fn approve_step(
     } else {
         // 所有步骤完成
         let mut instance_model: workflow_instance::ActiveModel = instance.clone().into();
-        instance_model.status = Set("已完成".to_string());
-        instance_model.current_step = Set("已完成".to_string());
+        instance_model.status = Set(WORKFLOW_STATUS_COMPLETED.to_string());
+        instance_model.current_step = Set(WORKFLOW_STATUS_COMPLETED.to_string());
         instance_model.completed_at = Set(Some(now));
         instance_model.updated_at = Set(now);
         instance_model.update(&state.db).await?;
@@ -349,7 +362,7 @@ pub async fn get_my_pending_approvals(
 ) -> Result<Json<Vec<WorkflowInstanceResponse>>, AppError> {
     // 获取用户待审批的步骤
     let pending_steps = workflow_step::Entity::find()
-        .filter(workflow_step::Column::Status.eq("待处理"))
+        .filter(workflow_step::Column::Status.eq(WORKFLOW_STATUS_PENDING))
         .filter(
             workflow_step::Column::ApproverId.eq(claims.user_id)
                 .or(workflow_step::Column::ApproverRoleId.is_null())

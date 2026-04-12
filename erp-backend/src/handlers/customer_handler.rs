@@ -9,6 +9,7 @@ use chrono::Utc;
 use rust_decimal::Decimal;
 use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait};
 use serde::{Deserialize, Serialize};
+use crate::constants::DEFAULT_CUSTOMER_RATING;
 use crate::entities::customer;
 use crate::handlers::error::AppError;
 use crate::state::AppState;
@@ -149,7 +150,7 @@ pub async fn create_customer(
         tax_number: Set(payload.tax_number),
         bank_account: Set(payload.bank_account),
         credit_limit: Set(payload.credit_limit),
-        rating: Set(payload.rating.or(Some(3))),
+        rating: Set(payload.rating.or(Some(DEFAULT_CUSTOMER_RATING))),
         level: Set(payload.level.or(Some("普通".to_string()))),
         status: Set("启用".to_string()),
         remark: Set(payload.remark),

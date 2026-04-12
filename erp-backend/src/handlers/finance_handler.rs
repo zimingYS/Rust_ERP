@@ -12,10 +12,6 @@ use crate::entities::financial_transaction;
 use crate::handlers::error::AppError;
 use crate::state::AppState;
 use crate::auth::UserClaims;
-use crate::constants::{
-    ORDER_STATUS_APPROVED,
-    SALES_ORDER_STATUS_COMPLETED,
-};
 
 #[derive(Deserialize)]
 pub struct TransactionQueryParams {

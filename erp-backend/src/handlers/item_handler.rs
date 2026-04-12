@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::entities::items::{ActiveModel, Column, Entity, Model};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
+use crate::constants::{DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE};
 
 #[derive(Deserialize)]
 pub struct CreateItemRequest {
@@ -70,7 +71,7 @@ pub async fn get_items(
     Query(params): Query<ItemQueryParams>,
 ) -> Result<Json<ItemsListResponse>, AppError> {
     let page = params.page.unwrap_or(1);
-    let page_size = params.page_size.unwrap_or(10).min(100);
+    let page_size = params.page_size.unwrap_or(DEFAULT_PAGE_SIZE).min(MAX_PAGE_SIZE);
 
     let mut query = Entity::find();
 

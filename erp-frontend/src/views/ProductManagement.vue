@@ -317,6 +317,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Edit, Delete, Ticket, ShoppingCart, Sell, Box, Coin, InfoFilled, Upload, Download, UploadFilled } from '@element-plus/icons-vue'
 import request from '../utils/request'
+import { API_ENDPOINTS, PAGINATION, ADJUSTMENT_TYPES, TIME_CONSTANTS } from '../api/constants'
 
 const router = useRouter()
 const items = ref([])
@@ -332,7 +333,7 @@ const searchSku = ref('')
 
 const pagination = reactive({
   page: 1,
-  pageSize: 10,
+  pageSize: PAGINATION.DEFAULT_PAGE_SIZE,
   total: 0
 })
 
@@ -355,17 +356,6 @@ const goToPage = (path) => {
   router.push(path)
 }
 
-const goToInventoryAdjust = (item) => {
-  router.push(`/inventory?id=${item.id}`)
-}
-
-const goToInventoryFromDialog = () => {
-  dialogVisible.value = false
-  setTimeout(() => {
-    router.push(`/inventory?id=${newItem.id}`)
-  }, 300)
-}
-
 const loadItems = async () => {
   loading.value = true
   try {
@@ -380,7 +370,7 @@ const loadItems = async () => {
       params.sku = searchSku.value
     }
 
-    const res = await request.get('/api/items', { params })
+    const res = await request.get(API_ENDPOINTS.ITEMS, { params })
     if (res.code === 200) {
       items.value = res.data.items
       pagination.total = res.data.total
@@ -420,7 +410,7 @@ const handleBatchDelete = async () => {
       }
     )
 
-    await request.delete('/api/items', { data: selectedIds.value })
+    await request.delete(API_ENDPOINTS.ITEMS, { data: selectedIds.value })
     ElMessage.success('批量删除成功')
     selectedIds.value = []
     loadItems()
@@ -465,10 +455,10 @@ const saveItem = async () => {
         min_stock: newItem.min_stock,
         description: newItem.description
       }
-      await request.put(`/api/items/${newItem.id}`, updateData)
+      await request.put(`${API_ENDPOINTS.ITEMS}/${newItem.id}`, updateData)
       ElMessage.success('更新成功')
     } else {
-      await request.post('/api/items', newItem)
+      await request.post(API_ENDPOINTS.ITEMS, newItem)
       ElMessage.success('创建成功')
     }
 
@@ -491,7 +481,7 @@ const deleteItem = async (id) => {
       type: 'warning'
     })
 
-    await request.delete(`/api/items/${id}`)
+    await request.delete(`${API_ENDPOINTS.ITEMS}/${id}`)
     ElMessage.success('删除成功')
     loadItems()
   } catch (error) {
@@ -499,6 +489,17 @@ const deleteItem = async (id) => {
       console.error('删除失败:', error)
     }
   }
+}
+
+const goToInventoryAdjust = (item) => {
+  router.push(`${API_ENDPOINTS.INVENTORY_ITEMS.replace('/items', '')}?id=${item.id}`)
+}
+
+const goToInventoryFromDialog = () => {
+  dialogVisible.value = false
+  setTimeout(() => {
+    router.push(`${API_ENDPOINTS.INVENTORY_ITEMS.replace('/items', '')}?id=${newItem.id}`)
+  }, TIME_CONSTANTS.DIALOG_CLOSE_DELAY)
 }
 
 const getStockType = (item) => {
@@ -552,7 +553,7 @@ const handleFileChange = (file) => {
 
 const downloadTemplate = async () => {
   try {
-    const response = await fetch('/api/import/template', {
+    const response = await fetch(API_ENDPOINTS.IMPORT_TEMPLATE, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('erp_token')}`
       }
@@ -585,7 +586,7 @@ const submitImport = async () => {
     const formData = new FormData()
     formData.append('file', selectedFile.value)
 
-    const response = await fetch('/api/import/products', {
+    const response = await fetch(API_ENDPOINTS.IMPORT_PRODUCTS, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('erp_token')}`
@@ -598,7 +599,7 @@ const submitImport = async () => {
 
     if (result.success_count > 0) {
       ElMessage.success(`导入完成！成功 ${result.success_count} 条`)
-      loadItems() // 刷新列表
+      loadItems()
     }
 
     if (result.failed_count > 0) {

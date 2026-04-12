@@ -18,6 +18,11 @@ use crate::constants::{
     ADJUSTMENT_TYPE_COUNTING,
     ADJUSTMENT_TYPE_LOSS,
     ADJUSTMENT_TYPE_RETURN,
+    DEFAULT_LEAD_TIME_DAYS,
+    SERVICE_FACTOR_95,
+    INVENTORY_DAYS_BASE,
+    REORDER_DAYS_TARGET,
+    REORDER_MULTIPLIER,
 };
 
 #[derive(Deserialize)]
@@ -263,8 +268,8 @@ pub async fn get_low_stock_alerts(
         .map(|item| {
             let min_stock = item.min_stock.unwrap_or(0);
             let shortage = min_stock - item.stock;
-            // 建议订货量 = 最低库存 * 2 - 当前库存
-            let suggested_order_qty = (min_stock * 2) - item.stock;
+            // 建议订货量 = 最低库存 * 倍数 - 当前库存
+            let suggested_order_qty = (min_stock * REORDER_MULTIPLIER) - item.stock;
 
             LowStockAlert {
                 item_id: item.id,
@@ -297,19 +302,19 @@ pub async fn get_reorder_suggestions(
 
             // 简化的平均日用量计算（实际应该基于历史销售数据）
             let avg_daily_usage = if min_stock > 0 {
-                min_stock as f64 / 30.0 // 假设最低库存是30天的用量
+                min_stock as f64 / INVENTORY_DAYS_BASE
             } else {
                 0.0
             };
 
-            let lead_time_days = 7; // 默认采购提前期7天
+            let lead_time_days = DEFAULT_LEAD_TIME_DAYS;
             let safety_stock = min_stock; // 安全库存 = 最低库存
 
             // 再订货点 = 平均日用量 * 提前期 + 安全库存
             let reorder_point = (avg_daily_usage * lead_time_days as f64) as i32 + safety_stock;
 
-            // 建议订货量 = (平均日用量 * 60天) - 当前库存
-            let suggested_qty = ((avg_daily_usage * 60.0) as i32) - current_stock;
+            // 建议订货量 = (平均日用量 * 目标天数) - 当前库存
+            let suggested_qty = ((avg_daily_usage * REORDER_DAYS_TARGET) as i32) - current_stock;
 
             // 优先级判断
             let priority = if current_stock == 0 {
@@ -423,13 +428,13 @@ pub async fn auto_calculate_safety_stock(
     // 简化的安全库存计算
     // 实际应该基于历史数据的标准差和服务水平
     let avg_daily_usage = if item.min_stock.is_some() {
-        item.min_stock.unwrap() as f64 / 30.0
+        item.min_stock.unwrap() as f64 / INVENTORY_DAYS_BASE
     } else {
         0.0
     };
 
-    let lead_time_days = 7; // 采购提前期
-    let service_factor = 1.65; // 95%服务水平的Z值
+    let lead_time_days = DEFAULT_LEAD_TIME_DAYS;
+    let service_factor = SERVICE_FACTOR_95;
 
     // 安全库存 = Z值 * 平均日用量 * sqrt(提前期)
     let safety_stock = (service_factor * avg_daily_usage * (lead_time_days as f64).sqrt()) as i32;

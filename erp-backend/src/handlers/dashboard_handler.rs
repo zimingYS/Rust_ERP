@@ -1,15 +1,16 @@
 /*
     仪表盘数据接口
 */
-use std::sync::Arc;
-use axum::extract::State;
-use axum::Json;
-use chrono::{Local, Datelike};
-use sea_orm::{EntityTrait, QueryFilter, ColumnTrait, QueryOrder, PaginatorTrait, FromQueryResult, QuerySelect};
-use serde::Serialize;
-use crate::entities::{purchase_order, sales_order, items, financial_transaction, sales_order_item};
+use crate::constants::TREND_DAYS;
+use crate::entities::{financial_transaction, items, purchase_order, sales_order, sales_order_item};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
+use axum::extract::State;
+use axum::Json;
+use chrono::{Datelike, Duration, Local};
+use sea_orm::{ColumnTrait, EntityTrait, FromQueryResult, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect};
+use serde::Serialize;
+use std::sync::Arc;
 
 #[derive(Serialize)]
 pub struct DashboardStats {
@@ -135,10 +136,10 @@ pub async fn get_sales_trend(
     let mut trend_data = Vec::new();
 
     // 获取最近7天的销售数据
-    for i in (0..7).rev() {
-        let date = now.clone() - chrono::Duration::days(i);
+    for i in (0..TREND_DAYS).rev() {
+        let date = now.clone() - Duration::days(i);
         let date_str = date.format("%Y-%m-%d").to_string();
-        let next_date = (date.clone() + chrono::Duration::days(1)).format("%Y-%m-%d").to_string();
+        let next_date = (date.clone() + Duration::days(1)).format("%Y-%m-%d").to_string();
 
         let orders = sales_order::Entity::find()
             .filter(sales_order::Column::OrderDate.gte(date_str.clone()))
@@ -166,10 +167,10 @@ pub async fn get_purchase_trend(
     let mut trend_data = Vec::new();
 
     // 获取最近7天的采购数据
-    for i in (0..7).rev() {
-        let date = now.clone() - chrono::Duration::days(i);
+    for i in (0..TREND_DAYS).rev() {
+        let date = now.clone() - Duration::days(i);
         let date_str = date.format("%Y-%m-%d").to_string();
-        let next_date = (date.clone() + chrono::Duration::days(1)).format("%Y-%m-%d").to_string();
+        let next_date = (date.clone() + Duration::days(1)).format("%Y-%m-%d").to_string();
 
         let orders = purchase_order::Entity::find()
             .filter(purchase_order::Column::OrderDate.gte(date_str.clone()))

@@ -1,6 +1,7 @@
 use sea_orm::{Database, ConnectionTrait, EntityTrait, PaginatorTrait, ActiveModelTrait, DatabaseConnection};
 use tracing;
 use entities::role::{Entity as RoleEntity, ActiveModel as RoleActiveModel};
+use crate::constants::{ROLE_ADMIN, ROLE_SUPERVISOR, ROLE_USER};
 use crate::entities;
 
 pub async fn connect_db() -> DatabaseConnection {
@@ -102,11 +103,15 @@ pub async fn init_default_roles(db: &DatabaseConnection) {
 
         let default_roles = vec![
             RoleActiveModel {
-                id: sea_orm::ActiveValue::Set(1),
+                id: sea_orm::ActiveValue::Set(ROLE_ADMIN),
                 name: sea_orm::ActiveValue::Set("管理员".to_string()),
             },
             RoleActiveModel {
-                id: sea_orm::ActiveValue::Set(2),
+                id: sea_orm::ActiveValue::Set(ROLE_SUPERVISOR),
+                name: sea_orm::ActiveValue::Set("主管".to_string()),
+            },
+            RoleActiveModel {
+                id: sea_orm::ActiveValue::Set(ROLE_USER),
                 name: sea_orm::ActiveValue::Set("普通用户".to_string()),
             },
         ];

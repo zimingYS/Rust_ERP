@@ -214,6 +214,7 @@ import {
   SwitchButton
 } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
+import { API_ENDPOINTS, TIME_CONSTANTS } from '../api/constants'
 
 const router = useRouter()
 const route = useRoute()
@@ -388,20 +389,20 @@ const formatTime = (timeStr) => {
   const diff = now - date
 
   // 小于1分钟
-  if (diff < 60000) {
+  if (diff < TIME_CONSTANTS.ONE_MINUTE_MS) {
     return '刚刚'
   }
   // 小于1小时
-  if (diff < 3600000) {
-    return `${Math.floor(diff / 60000)}分钟前`
+  if (diff < TIME_CONSTANTS.ONE_HOUR_MS) {
+    return `${Math.floor(diff / TIME_CONSTANTS.ONE_MINUTE_MS)}分钟前`
   }
   // 小于24小时
-  if (diff < 86400000) {
-    return `${Math.floor(diff / 3600000)}小时前`
+  if (diff < TIME_CONSTANTS.ONE_DAY_MS) {
+    return `${Math.floor(diff / TIME_CONSTANTS.ONE_HOUR_MS)}小时前`
   }
   // 小于7天
-  if (diff < 604800000) {
-    return `${Math.floor(diff / 86400000)}天前`
+  if (diff < TIME_CONSTANTS.SEVEN_DAYS_MS) {
+    return `${Math.floor(diff / TIME_CONSTANTS.ONE_DAY_MS)}天前`
   }
 
   return date.toLocaleDateString('zh-CN')
@@ -439,7 +440,7 @@ onMounted(() => {
     // 每30秒轮询一次未读消息数
     pollingTimer = setInterval(() => {
       fetchUnreadCount()
-    }, 30000)
+    }, TIME_CONSTANTS.POLLING_INTERVAL)
   }
 })
 
