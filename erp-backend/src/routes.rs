@@ -2,7 +2,7 @@ use axum::routing::get;
 use axum::{middleware, Router};
 use std::sync::Arc;
 use axum::routing::post;
-use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler, finance_handler, audit_handler, report_handler, user_management_handler, supplier_handler, customer_handler};
+use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler, finance_handler, audit_handler, report_handler, user_management_handler, supplier_handler, customer_handler, notification_handler};
 use crate::middleware::{auth_middleware, require_admin_middleware};
 use crate::state::AppState;
 
@@ -97,6 +97,18 @@ pub fn create_router(state: Arc<AppState>) -> Router{
         .route("/api/inventory/items/{id}/history",
                get(inventory_handler::get_adjustment_history)
         )
+        .route("/api/inventory/alerts/low-stock",
+               get(inventory_handler::get_low_stock_alerts)
+        )
+        .route("/api/inventory/reorder-suggestions",
+               get(inventory_handler::get_reorder_suggestions)
+        )
+        .route("/api/inventory/check-alerts",
+               post(inventory_handler::check_and_create_alerts)
+        )
+        .route("/api/inventory/items/{id}/safety-stock",
+               get(inventory_handler::auto_calculate_safety_stock)
+        )
 
         // 采购管理
         .route("/api/purchase-orders",
@@ -183,6 +195,27 @@ pub fn create_router(state: Arc<AppState>) -> Router{
         )
         .route("/api/reports/export/audit",
                get(report_handler::export_audit_logs)
+        )
+
+        // 消息通知
+        .route("/api/notifications",
+               get(notification_handler::get_user_notifications)
+                   .post(notification_handler::create_notification)
+        )
+        .route("/api/notifications/stats",
+               get(notification_handler::get_notification_stats)
+        )
+        .route("/api/notifications/unread-count",
+               get(notification_handler::get_unread_count)
+        )
+        .route("/api/notifications/{id}/read",
+               post(notification_handler::mark_as_read)
+        )
+        .route("/api/notifications/mark-all-read",
+               post(notification_handler::mark_all_as_read)
+        )
+        .route("/api/notifications/{id}",
+               axum::routing::delete(notification_handler::delete_notification)
         );
 
     Router::new()

@@ -5,10 +5,10 @@ use std::sync::Arc;
 use axum::extract::{Path, Query, State, Extension};
 use axum::http::StatusCode;
 use axum::Json;
-use chrono::Local;
+use chrono::{Local, Utc};
 use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait};
 use serde::{Deserialize, Serialize};
-use crate::entities::{items, inventory_adjustment};
+use crate::entities::{items, inventory_adjustment, notification};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
 use crate::auth::UserClaims;
@@ -51,6 +51,31 @@ pub struct InventoryStats {
     pub low_stock_items: u64,
     pub out_of_stock_items: u64,
     pub total_stock_value: u64,
+}
+
+#[derive(Serialize)]
+pub struct LowStockAlert {
+    pub item_id: i32,
+    pub item_name: String,
+    pub sku: String,
+    pub current_stock: i32,
+    pub min_stock: i32,
+    pub shortage: i32,
+    pub suggested_order_qty: i32,
+}
+
+#[derive(Serialize)]
+pub struct ReorderSuggestion {
+    pub item_id: i32,
+    pub item_name: String,
+    pub sku: String,
+    pub current_stock: i32,
+    pub avg_daily_usage: f64,
+    pub lead_time_days: i32,
+    pub safety_stock: i32,
+    pub reorder_point: i32,
+    pub suggested_qty: i32,
+    pub priority: String,
 }
 
 fn build_inventory_item(item: &items::Model) -> InventoryItem {
@@ -223,4 +248,192 @@ pub async fn batch_adjust_stock(
     Json(_payload): Json<Vec<StockAdjustmentRequest>>,
 ) -> Result<StatusCode, AppError> {
     Err(AppError::BadRequest("批量调整功能暂未实现".to_string()))
+}
+
+pub async fn get_low_stock_alerts(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<LowStockAlert>>, AppError> {
+    let all_items = items::Entity::find().all(&state.db).await?;
+
+    let alerts: Vec<LowStockAlert> = all_items.iter()
+        .filter(|item| {
+            let min_stock = item.min_stock.unwrap_or(0);
+            item.stock <= min_stock
+        })
+        .map(|item| {
+            let min_stock = item.min_stock.unwrap_or(0);
+            let shortage = min_stock - item.stock;
+            // 建议订货量 = 最低库存 * 2 - 当前库存
+            let suggested_order_qty = (min_stock * 2) - item.stock;
+
+            LowStockAlert {
+                item_id: item.id,
+                item_name: item.name.clone(),
+                sku: item.sku.clone(),
+                current_stock: item.stock,
+                min_stock,
+                shortage,
+                suggested_order_qty: if suggested_order_qty > 0 { suggested_order_qty } else { min_stock },
+            }
+        })
+        .collect();
+
+    Ok(Json(alerts))
+}
+
+pub async fn get_reorder_suggestions(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<ReorderSuggestion>>, AppError> {
+    let all_items = items::Entity::find().all(&state.db).await?;
+
+    let suggestions: Vec<ReorderSuggestion> = all_items.iter()
+        .filter(|item| {
+            let min_stock = item.min_stock.unwrap_or(0);
+            item.stock <= min_stock * 2 // 库存低于2倍最低库存时给出建议
+        })
+        .map(|item| {
+            let min_stock = item.min_stock.unwrap_or(0);
+            let current_stock = item.stock;
+
+            // 简化的平均日用量计算（实际应该基于历史销售数据）
+            let avg_daily_usage = if min_stock > 0 {
+                min_stock as f64 / 30.0 // 假设最低库存是30天的用量
+            } else {
+                0.0
+            };
+
+            let lead_time_days = 7; // 默认采购提前期7天
+            let safety_stock = min_stock; // 安全库存 = 最低库存
+
+            // 再订货点 = 平均日用量 * 提前期 + 安全库存
+            let reorder_point = (avg_daily_usage * lead_time_days as f64) as i32 + safety_stock;
+
+            // 建议订货量 = (平均日用量 * 60天) - 当前库存
+            let suggested_qty = ((avg_daily_usage * 60.0) as i32) - current_stock;
+
+            // 优先级判断
+            let priority = if current_stock == 0 {
+                "紧急".to_string()
+            } else if current_stock <= min_stock {
+                "高".to_string()
+            } else {
+                "中".to_string()
+            };
+
+            ReorderSuggestion {
+                item_id: item.id,
+                item_name: item.name.clone(),
+                sku: item.sku.clone(),
+                current_stock,
+                avg_daily_usage,
+                lead_time_days,
+                safety_stock,
+                reorder_point,
+                suggested_qty: if suggested_qty > 0 { suggested_qty } else { min_stock * 2 },
+                priority,
+            }
+        })
+        .collect();
+
+    Ok(Json(suggestions))
+}
+
+pub async fn check_and_create_alerts(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<u32>, AppError> {
+    let all_items = items::Entity::find().all(&state.db).await?;
+    let mut alert_count = 0u32;
+
+    for item in all_items {
+        let min_stock = item.min_stock.unwrap_or(0);
+
+        if item.stock <= min_stock && item.stock > 0 {
+            // 低库存预警
+            let title = format!("库存预警: {}", item.name);
+            let content = format!(
+                "物料 {} (SKU: {}) 当前库存为 {}，已低于最低库存 {}，请及时补货。",
+                item.name, item.sku, item.stock, min_stock
+            );
+
+            create_notification_for_low_stock(&state, &item, &title, &content, min_stock).await?;
+            alert_count += 1;
+        } else if item.stock == 0 {
+            // 缺货预警
+            let title = format!("缺货警告: {}", item.name);
+            let content = format!(
+                "物料 {} (SKU: {}) 已缺货，请立即采购！",
+                item.name, item.sku
+            );
+
+            create_notification_for_low_stock(&state, &item, &title, &content, min_stock).await?;
+            alert_count += 1;
+        }
+    }
+
+    tracing::info!("库存预警检查完成，生成 {} 条预警", alert_count);
+    Ok(Json(alert_count))
+}
+
+async fn create_notification_for_low_stock(
+    state: &AppState,
+    item: &items::Model,
+    title: &str,
+    content: &str,
+    _min_stock: i32,
+) -> Result<(), AppError> {
+    // 获取所有管理员和主管的ID
+    use crate::entities::user;
+
+    let users = user::Entity::find()
+        .filter(user::Column::RoleId.lte(2)) // 管理员和主管
+        .all(&state.db)
+        .await?;
+
+    for user in users {
+        let now = Utc::now();
+        let notification = notification::ActiveModel {
+            user_id: Set(user.id),
+            title: Set(title.to_string()),
+            content: Set(content.to_string()),
+            notification_type: Set("库存预警".to_string()),
+            is_read: Set(false),
+            priority: Set(if item.stock == 0 { Some("高".to_string()) } else { Some("中".to_string()) }),
+            related_id: Set(Some(item.id)),
+            related_type: Set(Some("inventory".to_string())),
+            created_at: Set(now),
+            read_at: Set(None),
+            ..Default::default()
+        };
+
+        notification.insert(&state.db).await?;
+    }
+
+    Ok(())
+}
+
+pub async fn auto_calculate_safety_stock(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<Json<i32>, AppError> {
+    let item = items::Entity::find_by_id(id)
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("物料 {} 不存在", id)))?;
+
+    // 简化的安全库存计算
+    // 实际应该基于历史数据的标准差和服务水平
+    let avg_daily_usage = if item.min_stock.is_some() {
+        item.min_stock.unwrap() as f64 / 30.0
+    } else {
+        0.0
+    };
+
+    let lead_time_days = 7; // 采购提前期
+    let service_factor = 1.65; // 95%服务水平的Z值
+
+    // 安全库存 = Z值 * 平均日用量 * sqrt(提前期)
+    let safety_stock = (service_factor * avg_daily_usage * (lead_time_days as f64).sqrt()) as i32;
+    let safety_stock = if safety_stock < 0 { 0 } else { safety_stock };
+
+    Ok(Json(safety_stock))
 }

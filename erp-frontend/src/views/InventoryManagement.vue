@@ -56,67 +56,162 @@
       </el-col>
     </el-row>
 
-    <!-- 搜索和筛选 -->
+    <!-- 功能标签页 -->
     <el-card style="margin-bottom: 20px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-        <el-form :inline="true" :model="searchForm" style="margin: 0;">
-          <el-form-item label="关键字" style="margin-bottom: 0;">
-            <el-input v-model="searchForm.keyword" placeholder="请输入物料名称" clearable style="width: 200px;" />
-          </el-form-item>
-          <el-form-item label="SKU" style="margin-bottom: 0;">
-            <el-input v-model="searchForm.sku" placeholder="请输入SKU" clearable style="width: 180px;" />
-          </el-form-item>
-          <el-form-item style="margin-bottom: 0;">
-            <el-checkbox v-model="searchForm.lowStock">仅显示低库存</el-checkbox>
-          </el-form-item>
-        </el-form>
-        <div style="display: flex; gap: 8px;">
-          <el-button type="primary" @click="handleSearch">
-            <el-icon><Search /></el-icon>
-            查询
-          </el-button>
-          <el-button @click="handleReset">
-            <el-icon><Refresh /></el-icon>
-            重置
-          </el-button>
-        </div>
-      </div>
-    </el-card>
+      <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+        <el-tab-pane label="库存管理" name="inventory">
+          <!-- 搜索和筛选 -->
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+            <el-form :inline="true" :model="searchForm" style="margin: 0;">
+              <el-form-item label="关键字" style="margin-bottom: 0;">
+                <el-input v-model="searchForm.keyword" placeholder="请输入物料名称" clearable style="width: 200px;" />
+              </el-form-item>
+              <el-form-item label="SKU" style="margin-bottom: 0;">
+                <el-input v-model="searchForm.sku" placeholder="请输入SKU" clearable style="width: 180px;" />
+              </el-form-item>
+              <el-form-item style="margin-bottom: 0;">
+                <el-checkbox v-model="searchForm.lowStock">仅显示低库存</el-checkbox>
+              </el-form-item>
+            </el-form>
+            <div style="display: flex; gap: 8px;">
+              <el-button type="primary" @click="handleSearch">
+                <el-icon><Search /></el-icon>
+                查询
+              </el-button>
+              <el-button @click="handleReset">
+                <el-icon><Refresh /></el-icon>
+                重置
+              </el-button>
+            </div>
+          </div>
 
-    <!-- 库存表格 -->
-    <el-table :data="inventoryList" border style="width: 100%" v-loading="loading">
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="name" label="物料名称" min-width="150" />
-      <el-table-column prop="sku" label="SKU" width="150" />
-      <el-table-column prop="stock" label="当前库存" width="120">
-        <template #default="scope">
-          <span :style="{ color: getStockColor(scope.row), fontWeight: 'bold' }">
-            {{ scope.row.stock }}
-          </span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="unit" label="单位" width="80" />
-      <el-table-column prop="min_stock" label="最低库存" width="100" />
-      <el-table-column label="库存状态" width="120">
-        <template #default="scope">
-          <el-tag :type="getStockStatusType(scope.row)">
-            {{ getStockStatus(scope.row) }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="280" fixed="right">
-        <template #default="scope">
-          <div style="display: flex; gap: 8px;">
-            <el-button size="small" type="primary" @click="openAdjustDialog(scope.row)">
-              调整库存
-            </el-button>
-            <el-button size="small" @click="viewHistory(scope.row)">
-              调整记录
+          <!-- 库存表格 -->
+          <el-table :data="inventoryList" border style="width: 100%" v-loading="loading">
+            <el-table-column prop="id" label="ID" width="80" />
+            <el-table-column prop="name" label="物料名称" min-width="150" />
+            <el-table-column prop="sku" label="SKU" width="150" />
+            <el-table-column prop="stock" label="当前库存" width="120">
+              <template #default="scope">
+                <span :style="{ color: getStockColor(scope.row), fontWeight: 'bold' }">
+                  {{ scope.row.stock }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="unit" label="单位" width="80" />
+            <el-table-column prop="min_stock" label="最低库存" width="100" />
+            <el-table-column label="库存状态" width="120">
+              <template #default="scope">
+                <el-tag :type="getStockStatusType(scope.row)">
+                  {{ getStockStatus(scope.row) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="280" fixed="right">
+              <template #default="scope">
+                <div style="display: flex; gap: 8px;">
+                  <el-button size="small" type="primary" @click="openAdjustDialog(scope.row)">
+                    调整库存
+                  </el-button>
+                  <el-button size="small" @click="viewHistory(scope.row)">
+                    调整记录
+                  </el-button>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane label="库存预警" name="alerts">
+          <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <el-alert
+                title="以下物料库存不足，请及时补货"
+                type="warning"
+                :closable="false"
+                show-icon
+              />
+            </div>
+            <el-button type="primary" @click="checkAlerts">
+              <el-icon><Bell /></el-icon>
+              检查预警
             </el-button>
           </div>
-        </template>
-      </el-table-column>
-    </el-table>
+
+          <el-table :data="lowStockAlerts" border style="width: 100%" v-loading="alertLoading">
+            <el-table-column prop="item_id" label="物料ID" width="80" />
+            <el-table-column prop="item_name" label="物料名称" min-width="150" />
+            <el-table-column prop="sku" label="SKU" width="150" />
+            <el-table-column prop="current_stock" label="当前库存" width="100" align="center">
+              <template #default="scope">
+                <span style="color: #f56c6c; font-weight: bold;">{{ scope.row.current_stock }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="min_stock" label="最低库存" width="100" align="center" />
+            <el-table-column prop="shortage" label="短缺数量" width="100" align="center">
+              <template #default="scope">
+                <span style="color: #e6a23c; font-weight: bold;">-{{ scope.row.shortage }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="suggested_order_qty" label="建议订货量" width="120" align="center">
+              <template #default="scope">
+                <span style="color: #67c23a; font-weight: bold;">{{ scope.row.suggested_order_qty }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="150" fixed="right">
+              <template #default="scope">
+                <el-button size="small" type="primary" @click="goToPurchase(scope.row)">
+                  去采购
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane label="补货建议" name="reorder">
+          <div style="margin-bottom: 15px;">
+            <el-alert
+              title="基于库存水平和用量的智能补货建议"
+              type="info"
+              :closable="false"
+              show-icon
+            />
+          </div>
+
+          <el-table :data="reorderSuggestions" border style="width: 100%" v-loading="suggestionLoading">
+            <el-table-column prop="item_id" label="物料ID" width="80" />
+            <el-table-column prop="item_name" label="物料名称" min-width="150" />
+            <el-table-column prop="sku" label="SKU" width="150" />
+            <el-table-column prop="current_stock" label="当前库存" width="100" align="center" />
+            <el-table-column prop="avg_daily_usage" label="日均用量" width="100" align="center">
+              <template #default="scope">
+                {{ scope.row.avg_daily_usage.toFixed(2) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="safety_stock" label="安全库存" width="100" align="center" />
+            <el-table-column prop="reorder_point" label="再订货点" width="100" align="center" />
+            <el-table-column prop="suggested_qty" label="建议订货量" width="120" align="center">
+              <template #default="scope">
+                <span style="color: #67c23a; font-weight: bold;">{{ scope.row.suggested_qty }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="priority" label="优先级" width="100" align="center">
+              <template #default="scope">
+                <el-tag :type="getPriorityType(scope.row.priority)">
+                  {{ scope.row.priority }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="150" fixed="right">
+              <template #default="scope">
+                <el-button size="small" type="primary" @click="goToPurchase(scope.row)">
+                  去采购
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
 
     <!-- 库存调整对话框 -->
     <el-dialog v-model="adjustDialogVisible" title="库存调整" width="500px">
@@ -191,16 +286,21 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import request from '../utils/request'
 import { ElMessage } from 'element-plus'
-import { Box, Warning, CircleClose, TrendCharts, Search, Refresh } from '@element-plus/icons-vue'
+import { Box, Warning, CircleClose, TrendCharts, Search, Refresh, Bell } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
+const activeTab = ref('inventory')
 const inventoryList = ref([])
 const loading = ref(false)
 const adjustDialogVisible = ref(false)
 const historyDialogVisible = ref(false)
 const currentItem = ref(null)
 const adjustmentHistory = ref([])
+const lowStockAlerts = ref([])
+const alertLoading = ref(false)
+const reorderSuggestions = ref([])
+const suggestionLoading = ref(false)
 
 const stats = ref({
   total_items: 0,
@@ -236,6 +336,14 @@ const calculateAfterStock = computed(() => {
   return current
 })
 
+const handleTabChange = (tab) => {
+  if (tab === 'alerts') {
+    fetchLowStockAlerts()
+  } else if (tab === 'reorder') {
+    fetchReorderSuggestions()
+  }
+}
+
 const fetchInventory = async () => {
   loading.value = true
   try {
@@ -265,6 +373,51 @@ const fetchStats = async () => {
   } catch (e) {
     console.error('获取统计数据失败', e)
   }
+}
+
+const fetchLowStockAlerts = async () => {
+  alertLoading.value = true
+  try {
+    lowStockAlerts.value = await request.get('/api/inventory/alerts/low-stock')
+  } catch (e) {
+    console.error('获取库存预警失败', e)
+    ElMessage.error('获取库存预警失败')
+  } finally {
+    alertLoading.value = false
+  }
+}
+
+const fetchReorderSuggestions = async () => {
+  suggestionLoading.value = true
+  try {
+    reorderSuggestions.value = await request.get('/api/inventory/reorder-suggestions')
+  } catch (e) {
+    console.error('获取补货建议失败', e)
+    ElMessage.error('获取补货建议失败')
+  } finally {
+    suggestionLoading.value = false
+  }
+}
+
+const checkAlerts = async () => {
+  try {
+    const count = await request.post('/api/inventory/check-alerts')
+    ElMessage.success(`检查完成，生成 ${count} 条预警通知`)
+    await fetchLowStockAlerts()
+  } catch (e) {
+    console.error('检查预警失败', e)
+    ElMessage.error('检查预警失败')
+  }
+}
+
+const goToPurchase = (item) => {
+  router.push({
+    path: '/purchase',
+    query: {
+      itemId: item.item_id,
+      suggestedQty: item.suggested_order_qty || item.suggested_qty
+    }
+  })
 }
 
 const handleSearch = () => {
@@ -344,6 +497,14 @@ const getStockStatusType = (item) => {
   return 'success'
 }
 
+const getPriorityType = (priority) => {
+  switch(priority) {
+    case '紧急': return 'danger'
+    case '高': return 'warning'
+    default: return 'info'
+  }
+}
+
 onMounted(() => {
   const token = localStorage.getItem('erp_token')
   if (!token) {
@@ -355,7 +516,6 @@ onMounted(() => {
     // 如果 URL 中有 id 参数，自动打开该物料的库存调整对话框
     const itemId = route.query.id
     if (itemId) {
-      // 等待数据加载完成后，找到对应的物料并打开对话框
       setTimeout(() => {
         const targetItem = inventoryList.value.find(item => item.id === parseInt(itemId))
         if (targetItem) {

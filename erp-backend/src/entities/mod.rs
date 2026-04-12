@@ -14,3 +14,4 @@ pub(crate) mod financial_transaction;
 pub(crate) mod audit_log;
 pub(crate) mod supplier;
 pub(crate) mod customer;
+pub(crate) mod notification;

@@ -215,7 +215,7 @@ pub async fn delete_transaction(
     }
 }
 
-#[warn(dead_code)]
+#[allow(dead_code)]
 pub async fn auto_create_purchase_transaction(
     State(state): State<Arc<AppState>>,
     Path(order_id): Path<i32>,
@@ -262,7 +262,7 @@ pub async fn auto_create_purchase_transaction(
     Ok(StatusCode::CREATED)
 }
 
-#[warn(dead_code)]
+#[allow(dead_code)]
 pub async fn auto_create_sales_transaction(
     State(state): State<Arc<AppState>>,
     Path(order_id): Path<i32>,
