@@ -8,7 +8,7 @@ use axum::Json;
 use chrono::Local;
 use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait};
 use serde::{Deserialize, Serialize};
-use crate::entities::{sales_order, sales_order_item, financial_transaction};
+use crate::entities::{sales_order, sales_order_item, financial_transaction, items, inventory_adjustment};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
 use crate::auth::UserClaims;
@@ -30,6 +30,7 @@ pub struct CreateSalesOrderRequest{
 
 #[derive(Deserialize)]
 pub struct SalesOrderItemRequest{
+    pub item_id: Option<i32>,
     pub item_name: String,
     pub quantity: i32,
     pub unit_price: f64,
@@ -177,6 +178,7 @@ pub async fn create_sales_order(
     for item in &payload.items {
         let order_item = sales_order_item::ActiveModel {
             sales_order_id: Set(inserted_order.id),
+            item_id: Set(item.item_id),
             item_name: Set(item.item_name.clone()),
             quantity: Set(item.quantity),
             unit_price: Set(item.unit_price),
@@ -240,6 +242,7 @@ pub async fn update_sales_order(
     for item in &payload.items {
         let order_item = sales_order_item::ActiveModel {
             sales_order_id: Set(id),
+            item_id: Set(item.item_id),
             item_name: Set(item.item_name.clone()),
             quantity: Set(item.quantity),
             unit_price: Set(item.unit_price),
@@ -327,6 +330,54 @@ pub async fn complete_sales_order(
 
     if order.status != SALES_ORDER_STATUS_CONFIRMED {
         return Err(AppError::BadRequest(format!("订单当前状态为 '{}', 无法完成", order.status)));
+    }
+
+    let order_items = sales_order_item::Entity::find()
+        .filter(sales_order_item::Column::SalesOrderId.eq(id))
+        .all(&state.db)
+        .await?;
+
+    for item in &order_items {
+        if let Some(item_id) = item.item_id {
+            let inventory_item = items::Entity::find_by_id(item_id)
+                .one(&state.db)
+                .await?
+                .ok_or_else(|| AppError::NotFound(format!("物料 {} 不存在", item_id)))?;
+
+            let before_stock = inventory_item.stock;
+
+            if before_stock < item.quantity {
+                return Err(AppError::BadRequest(format!(
+                    "物料 '{}' 库存不足,当前库存: {}, 需要出库: {}",
+                    inventory_item.name, before_stock, item.quantity
+                )));
+            }
+
+            let new_stock = before_stock - item.quantity;
+
+            let mut item_model: items::ActiveModel = inventory_item.into();
+            item_model.stock = Set(new_stock);
+            item_model.update(&state.db).await?;
+
+            let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+            let adjustment_record = inventory_adjustment::ActiveModel {
+                item_id: Set(item_id),
+                adjustment_type: Set("销售出库".to_string()),
+                quantity: Set(item.quantity),
+                before_stock: Set(before_stock),
+                after_stock: Set(new_stock),
+                reason: Set(Some(format!("销售订单: {}", order.order_number))),
+                created_by: Set(claims.user_id),
+                created_at: Set(now),
+                ..Default::default()
+            };
+            adjustment_record.insert(&state.db).await?;
+
+            tracing::info!(
+                "销售出库 - 物料ID: {}, 数量: {}, 调整前: {}, 调整后: {}",
+                item_id, item.quantity, before_stock, new_stock
+            );
+        }
     }
 
     let mut order: sales_order::ActiveModel = order.into();

@@ -171,11 +171,21 @@
               </el-table-column>
               <el-table-column label="物品名称" min-width="180">
                 <template #default="scope">
-                  <el-input
-                    v-model="scope.row.item_name"
-                    placeholder="请输入物品名称"
+                  <el-select
+                    v-model="scope.row.item_id"
+                    placeholder="请选择物料"
+                    filterable
                     clearable
-                  />
+                    @change="(val) => handleItemChange(scope.$index, val)"
+                    style="width: 100%;"
+                  >
+                    <el-option
+                      v-for="item in allItems"
+                      :key="item.id"
+                      :label="`${item.name} (${item.sku})`"
+                      :value="item.id"
+                    />
+                  </el-select>
                 </template>
               </el-table-column>
               <el-table-column label="数量" width="120" align="center">
@@ -293,6 +303,7 @@ const isEdit = ref(false)
 const currentId = ref(null)
 const currentOrder = ref(null)
 const currentOrderItems = ref([])
+const allItems = ref([])
 
 const userRole = ref(parseInt(localStorage.getItem('user_role') || '3'))
 const hasApprovePermission = computed(() => userRole.value === 1 || userRole.value === 2)
@@ -316,6 +327,17 @@ const newOrder = ref({
   expected_delivery_date: '',
   items: []
 })
+
+const fetchAllItems = async () => {
+  try {
+    const response = await request.get('/api/items', {
+      params: { page: 1, page_size: 1000 }
+    })
+    allItems.value = response.data?.items || []
+  } catch (e) {
+    console.error('获取物料列表失败', e)
+  }
+}
 
 const calculateTotalAmount = computed(() => {
   return newOrder.value.items.reduce((total, item) => {
@@ -370,6 +392,7 @@ const handleReset = () => {
 
 const addItem = () => {
   newOrder.value.items.push({
+    item_id: null,
     item_name: '',
     quantity: 1,
     unit_price: 0,
@@ -379,6 +402,16 @@ const addItem = () => {
 
 const removeItem = (index) => {
   newOrder.value.items.splice(index, 1)
+}
+
+const handleItemChange = (index, itemId) => {
+  const selectedItem = allItems.value.find(item => item.id === itemId)
+  if (selectedItem) {
+    newOrder.value.items[index].item_id = selectedItem.id
+    newOrder.value.items[index].item_name = selectedItem.name
+  } else {
+    newOrder.value.items[index].item_id = null
+  }
 }
 
 const saveOrder = async () => {
@@ -501,6 +534,7 @@ const handleEdit = async (row) => {
       supplier: order.supplier,
       expected_delivery_date: order.expected_delivery_date,
       items: items.map(item => ({
+        item_id: item.item_id || null,
         item_name: item.item_name,
         quantity: item.quantity,
         unit_price: item.unit_price,
@@ -545,6 +579,7 @@ onMounted(() => {
   } else {
     fetchOrders()
     fetchStats()
+    fetchAllItems()
   }
 })
 </script>

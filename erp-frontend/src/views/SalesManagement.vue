@@ -48,7 +48,7 @@
               <el-icon :size="30"><Money /></el-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-value">¥{{ stats.this_month_amount.toFixed(2) }}</div>
+              <div class="stat-value">¥{{ (stats.this_month_amount || 0).toFixed(2) }}</div>
               <div class="stat-label">本月金额</div>
             </div>
           </div>
@@ -180,11 +180,21 @@
               </el-table-column>
               <el-table-column label="物品名称" min-width="180">
                 <template #default="scope">
-                  <el-input
-                    v-model="scope.row.item_name"
-                    placeholder="请输入物品名称"
+                  <el-select
+                    v-model="scope.row.item_id"
+                    placeholder="请选择物料"
+                    filterable
                     clearable
-                  />
+                    @change="(val) => handleItemChange(scope.$index, val)"
+                    style="width: 100%;"
+                  >
+                    <el-option
+                      v-for="item in allItems"
+                      :key="item.id"
+                      :label="`${item.name} (${item.sku})`"
+                      :value="item.id"
+                    />
+                  </el-select>
                 </template>
               </el-table-column>
               <el-table-column label="数量" width="120" align="center">
@@ -230,7 +240,8 @@
             </el-table>
 
             <div class="items-footer">
-              <el-button type="primary" plain @click="addItem" :icon="Plus">
+              <el-button type="primary" plain @click="addItem">
+                <el-icon><Plus /></el-icon>
                 添加明细
               </el-button>
               <div class="total-amount">
@@ -302,6 +313,7 @@ const isEdit = ref(false)
 const currentId = ref(null)
 const currentOrder = ref(null)
 const currentOrderItems = ref([])
+const allItems = ref([])
 
 const userRole = ref(parseInt(localStorage.getItem('user_role') || '3'))
 const hasApprovePermission = computed(() => userRole.value === 1 || userRole.value === 2)
@@ -325,6 +337,17 @@ const newOrder = ref({
   delivery_date: '',
   items: []
 })
+
+const fetchAllItems = async () => {
+  try {
+    const response = await request.get('/api/items', {
+      params: { page: 1, page_size: 1000 }
+    })
+    allItems.value = response.data?.items || []
+  } catch (e) {
+    console.error('获取物料列表失败', e)
+  }
+}
 
 const calculateTotalAmount = computed(() => {
   return newOrder.value.items.reduce((total, item) => {
@@ -364,21 +387,22 @@ const fetchStats = async () => {
   }
 }
 
-const handleSearch = () => {
-  fetchOrders()
+const handleSearch = async () => {
+  await fetchOrders()
 }
 
-const handleReset = () => {
+const handleReset = async () => {
   searchForm.value = {
     status: '',
     customer: '',
     dateRange: []
   }
-  fetchOrders()
+  await fetchOrders()
 }
 
 const addItem = () => {
   newOrder.value.items.push({
+    item_id: null,
     item_name: '',
     quantity: 1,
     unit_price: 0,
@@ -388,6 +412,16 @@ const addItem = () => {
 
 const removeItem = (index) => {
   newOrder.value.items.splice(index, 1)
+}
+
+const handleItemChange = (index, itemId) => {
+  const selectedItem = allItems.value.find(item => item.id === itemId)
+  if (selectedItem) {
+    newOrder.value.items[index].item_id = selectedItem.id
+    newOrder.value.items[index].item_name = selectedItem.name
+  } else {
+    newOrder.value.items[index].item_id = null
+  }
 }
 
 const saveOrder = async () => {
@@ -424,8 +458,8 @@ const saveOrder = async () => {
       ElMessage.success('创建成功!')
     }
     dialogVisible.value = false
-    fetchOrders()
-    fetchStats()
+    await fetchOrders()
+    await fetchStats()
   } catch (error) {
     const errorMsg = error.response?.data?.error || '操作失败'
     ElMessage.error(errorMsg)
@@ -441,8 +475,8 @@ const deleteOrder = async (id) => {
     })
     await request.delete(`/api/sales-orders/${id}`)
     ElMessage.success('订单已删除')
-    fetchOrders()
-    fetchStats()
+    await fetchOrders()
+    await fetchStats()
   } catch (error) {
     if (error !== 'cancel') {
       const errorMsg = error.response?.data?.error || '删除失败'
@@ -460,8 +494,8 @@ const handleConfirm = async (id) => {
     })
     await request.post(`/api/sales-orders/${id}/confirm`)
     ElMessage.success('确认成功!')
-    fetchOrders()
-    fetchStats()
+    await fetchOrders()
+    await fetchStats()
   } catch (error) {
     if (error !== 'cancel') {
       const errorMsg = error.response?.data?.error || '确认失败'
@@ -479,8 +513,8 @@ const handleComplete = async (id) => {
     })
     await request.post(`/api/sales-orders/${id}/complete`)
     ElMessage.success('订单已完成')
-    fetchOrders()
-    fetchStats()
+    await fetchOrders()
+    await fetchStats()
   } catch (error) {
     if (error !== 'cancel') {
       const errorMsg = error.response?.data?.error || '操作失败'
@@ -498,8 +532,8 @@ const handleCancel = async (id) => {
     })
     await request.post(`/api/sales-orders/${id}/cancel`)
     ElMessage.success('订单已取消')
-    fetchOrders()
-    fetchStats()
+    await fetchOrders()
+    await fetchStats()
   } catch (error) {
     if (error !== 'cancel') {
       const errorMsg = error.response?.data?.error || '取消失败'
@@ -510,9 +544,11 @@ const handleCancel = async (id) => {
 
 const handleView = async (row) => {
   try {
-    const [order, items] = await request.get(`/api/sales-orders/${row.id}`)
-    currentOrder.value = order
-    currentOrderItems.value = items
+    const response = await request.get(`/api/sales-orders/${row.id}`)
+    // 兼容多种返回格式，并确保 items 始终是数组
+    const data = response.data || response
+    currentOrder.value = data.order || data
+    currentOrderItems.value = data.items || []
     viewDialogVisible.value = true
   } catch (error) {
     ElMessage.error('获取订单详情失败')
@@ -521,18 +557,24 @@ const handleView = async (row) => {
 
 const handleEdit = async (row) => {
   try {
-    const [order, items] = await request.get(`/api/sales-orders/${row.id}`)
+    const response = await request.get(`/api/sales-orders/${row.id}`)
+    const data = response.data || response
+    const order = data.order || data
+    const items = data.items || []
+
     isEdit.value = true
     currentId.value = row.id
     currentOrder.value = order
     newOrder.value = {
       customer: order.customer,
       delivery_date: order.delivery_date,
+      // 确保映射时变量名正确
       items: items.map(item => ({
-        item_name: item.item_name,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        remark: item.remark
+        item_id: item.item_id || null,
+        item_name: item.item_name || '',
+        quantity: item.quantity || 1,
+        unit_price: item.unit_price || 0,
+        remark: item.remark || ''
       }))
     }
     dialogVisible.value = true
@@ -575,6 +617,7 @@ onMounted(() => {
   } else {
     fetchOrders()
     fetchStats()
+    fetchAllItems()
   }
 })
 </script>
@@ -639,10 +682,6 @@ onMounted(() => {
 .subtotal {
   color: #409eff;
   font-weight: 500;
-}
-
-:deep(.el-input-number) {
-  width: 100%;
 }
 
 :deep(.el-input-number input) {

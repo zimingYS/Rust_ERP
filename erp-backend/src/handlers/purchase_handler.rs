@@ -8,7 +8,7 @@ use axum::Json;
 use chrono::Local;
 use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait};
 use serde::{Deserialize, Serialize};
-use crate::entities::{purchase_order, purchase_order_item, financial_transaction};
+use crate::entities::{purchase_order, purchase_order_item, financial_transaction, items, inventory_adjustment};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
 use crate::auth::UserClaims;
@@ -29,6 +29,7 @@ pub struct CreatePurchaseOrderRequest{
 
 #[derive(Deserialize)]
 pub struct PurchaseOrderItemRequest{
+    pub item_id: Option<i32>,
     pub item_name: String,
     pub quantity: i32,
     pub unit_price: f64,
@@ -182,6 +183,7 @@ pub async fn create_purchase_order(
     for item in &payload.items {
         let order_item = purchase_order_item::ActiveModel {
             purchase_order_id: Set(inserted_order.id),
+            item_id: Set(item.item_id),
             item_name: Set(item.item_name.clone()),
             quantity: Set(item.quantity),
             unit_price: Set(item.unit_price),
@@ -234,6 +236,7 @@ pub async fn update_purchase_order(
     for item in &payload.items {
         let order_item = purchase_order_item::ActiveModel {
             purchase_order_id: Set(id),
+            item_id: Set(item.item_id),
             item_name: Set(item.item_name.clone()),
             quantity: Set(item.quantity),
             unit_price: Set(item.unit_price),
@@ -296,11 +299,51 @@ pub async fn approve_purchase_order(
         return Err(AppError::BadRequest(format!("订单当前状态为 '{}', 无法审批", order.status)));
     }
 
+    let order_items = purchase_order_item::Entity::find()
+        .filter(purchase_order_item::Column::PurchaseOrderId.eq(id))
+        .all(&state.db)
+        .await?;
+
     let mut order: purchase_order::ActiveModel = order.into();
     order.status = Set(ORDER_STATUS_APPROVED.to_string());
     order.updated_at = Set(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
 
     let updated_order = order.update(&state.db).await?;
+
+    for item in &order_items {
+        if let Some(item_id) = item.item_id {
+            let inventory_item = items::Entity::find_by_id(item_id)
+                .one(&state.db)
+                .await?
+                .ok_or_else(|| AppError::NotFound(format!("物料 {} 不存在", item_id)))?;
+
+            let before_stock = inventory_item.stock;
+            let new_stock = before_stock + item.quantity;
+
+            let mut item_model: items::ActiveModel = inventory_item.into();
+            item_model.stock = Set(new_stock);
+            item_model.update(&state.db).await?;
+
+            let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+            let adjustment_record = inventory_adjustment::ActiveModel {
+                item_id: Set(item_id),
+                adjustment_type: Set("采购入库".to_string()),
+                quantity: Set(item.quantity),
+                before_stock: Set(before_stock),
+                after_stock: Set(new_stock),
+                reason: Set(Some(format!("采购订单: {}", updated_order.order_number))),
+                created_by: Set(claims.user_id),
+                created_at: Set(now),
+                ..Default::default()
+            };
+            adjustment_record.insert(&state.db).await?;
+
+            tracing::info!(
+                "采购入库 - 物料ID: {}, 数量: {}, 调整前: {}, 调整后: {}",
+                item_id, item.quantity, before_stock, new_stock
+            );
+        }
+    }
 
     let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
