@@ -15,3 +15,5 @@ pub(crate) mod audit_log;
 pub(crate) mod supplier;
 pub(crate) mod customer;
 pub(crate) mod notification;
+pub(crate) mod workflow_instance;
+pub(crate) mod workflow_step;

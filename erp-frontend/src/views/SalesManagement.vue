@@ -106,20 +106,20 @@
       <el-table-column prop="order_number" label="订单编号" width="180" />
       <el-table-column prop="customer" label="客户" min-width="150" />
       <el-table-column prop="order_date" label="下单日期" width="180" />
-      <el-table-column prop="delivery_date" label="预计交付" width="180" />
+      <el-table-column prop="delivery_date" label="预计交付" width="120" />
       <el-table-column prop="total_amount" label="总金额" width="120">
         <template #default="scope">
           ¥{{ scope.row.total_amount.toFixed(2) }}
         </template>
       </el-table-column>
-      <el-table-column prop="status" label="状态" width="100">
+      <el-table-column prop="status" label="状态" width="80">
         <template #default="scope">
           <el-tag :type="getStatusType(scope.row.status)">
             {{ scope.row.status }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="320">
+      <el-table-column label="操作" width="340">
         <template #default="scope">
           <div style="display: flex; gap: 6px; flex-wrap: wrap;">
             <el-button size="small" @click="handleView(scope.row)">查看</el-button>
@@ -168,7 +168,7 @@
     </el-table>
 
     <!-- 新建/编辑对话框 -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑销售订单' : '新建销售订单'" width="900px" :close-on-click-modal="false">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑销售订单' : '新建销售订单'" width="1000px" :close-on-click-modal="false">
       <el-form :model="newOrder" label-width="120px" class="sales-form">
         <el-row :gutter="20">
           <el-col :span="12">

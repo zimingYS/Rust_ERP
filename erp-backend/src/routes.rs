@@ -2,7 +2,7 @@ use axum::routing::get;
 use axum::{middleware, Router};
 use std::sync::Arc;
 use axum::routing::post;
-use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler, finance_handler, audit_handler, report_handler, user_management_handler, supplier_handler, customer_handler, notification_handler, dashboard_handler};
+use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler, finance_handler, audit_handler, report_handler, user_management_handler, supplier_handler, customer_handler, notification_handler, dashboard_handler, workflow_handler};
 use crate::middleware::{auth_middleware, require_admin_middleware};
 use crate::state::AppState;
 
@@ -236,6 +236,20 @@ pub fn create_router(state: Arc<AppState>) -> Router{
         )
         .route("/api/dashboard/financial-summary",
                get(dashboard_handler::get_financial_summary)
+        )
+
+        // 工作流引擎
+        .route("/api/workflow/start",
+               post(workflow_handler::start_workflow)
+        )
+        .route("/api/workflow/{step_id}/approve",
+               post(workflow_handler::approve_step)
+        )
+        .route("/api/workflow/my-pending",
+               get(workflow_handler::get_my_pending_approvals)
+        )
+        .route("/api/workflow/history/{business_type}/{business_id}",
+               get(workflow_handler::get_workflow_history)
         );
 
     Router::new()

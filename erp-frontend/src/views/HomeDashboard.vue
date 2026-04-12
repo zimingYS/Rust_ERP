@@ -234,7 +234,7 @@ const inventoryPieOption = computed(() => ({
   legend: {
     orient: 'vertical',
     right: 10,
-    top: 'center'
+    bottom: 10
   },
   series: [
     {

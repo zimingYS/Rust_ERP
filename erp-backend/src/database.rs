@@ -83,6 +83,14 @@ pub async fn init_tables(db: &DatabaseConnection) {
         schema.create_table_from_entity(entities::notification::Entity).if_not_exists()
     )).await;
 
+    let _ = db.execute(builder.build(
+        schema.create_table_from_entity(entities::workflow_instance::Entity).if_not_exists()
+    )).await;
+
+    let _ = db.execute(builder.build(
+        schema.create_table_from_entity(entities::workflow_step::Entity).if_not_exists()
+    )).await;
+
     tracing::info!("数据库表创建完成!");
 }
 
