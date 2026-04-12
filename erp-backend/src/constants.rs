@@ -23,8 +23,8 @@ pub const SALES_ORDER_PREFIX: &str = "SO";
 pub const DEFAULT_PAGE_SIZE: u64 = 10;
 pub const MAX_PAGE_SIZE: u64 = 100;
 // pub const MIN_PAGE_SIZE: u64 = 1;
-
-// 库存常量
+//
+// // 库存常量
 // pub const DEFAULT_STOCK: i32 = 0;
 // pub const DEFAULT_MIN_STOCK: i32 = 0;
 
@@ -45,18 +45,24 @@ pub const INVENTORY_DAYS_BASE: f64 = 30.0; // 库存天数基准
 pub const REORDER_DAYS_TARGET: f64 = 60.0; // 补货目标天数
 
 // 消息通知优先级
-// pub const PRIORITY_HIGH: &str = "高";
-// pub const PRIORITY_MEDIUM: &str = "中";
-// pub const PRIORITY_LOW: &str = "低";
+pub const PRIORITY_HIGH: &str = "高";
+pub const PRIORITY_MEDIUM: &str = "中";
+pub const PRIORITY_LOW: &str = "低";
 
 // JWT Token 有效期（秒）
 pub const TOKEN_EXPIRY_SECONDS: usize = 86400; // 24小时
 
-//最近7天
-
+// 仪表盘趋势天数
 pub const TREND_DAYS: i64 = 7;
 
-//默认评分
-pub const DEFAULT_CUSTOMER_RATING: i32 = 3;
 // 补货计算倍数
 pub const REORDER_MULTIPLIER: i32 = 2;
+
+// 客户默认评分
+pub const DEFAULT_CUSTOMER_RATING: i32 = 3;
+
+// 通知类型
+pub const NOTIFICATION_TYPE_INVENTORY_ALERT: &str = "库存预警";
+pub const NOTIFICATION_TYPE_REORDER_SUGGESTION: &str = "补货建议";
+// pub const NOTIFICATION_TYPE_ORDER_APPROVAL: &str = "订单审批";
+// pub const NOTIFICATION_TYPE_SYSTEM: &str = "系统通知";

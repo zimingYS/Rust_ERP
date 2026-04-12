@@ -168,13 +168,19 @@
         </el-tab-pane>
 
         <el-tab-pane label="补货建议" name="reorder">
-          <div style="margin-bottom: 15px;">
-            <el-alert
-              title="基于库存水平和用量的智能补货建议"
-              type="info"
-              :closable="false"
-              show-icon
-            />
+          <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <el-alert
+                title="基于库存水平和用量的智能补货建议"
+                type="info"
+                :closable="false"
+                show-icon
+              />
+            </div>
+            <el-button type="success" @click="createReorderNotifications">
+              <el-icon><Bell /></el-icon>
+              生成补货通知
+            </el-button>
           </div>
 
           <el-table :data="reorderSuggestions" border style="width: 100%" v-loading="suggestionLoading">

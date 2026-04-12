@@ -23,6 +23,11 @@ use crate::constants::{
     INVENTORY_DAYS_BASE,
     REORDER_DAYS_TARGET,
     REORDER_MULTIPLIER,
+    PRIORITY_HIGH,
+    PRIORITY_MEDIUM,
+    PRIORITY_LOW,
+    NOTIFICATION_TYPE_INVENTORY_ALERT,
+    NOTIFICATION_TYPE_REORDER_SUGGESTION,
 };
 
 #[derive(Deserialize)]
@@ -386,11 +391,11 @@ async fn create_notification_for_low_stock(
     content: &str,
     _min_stock: i32,
 ) -> Result<(), AppError> {
-    // 获取所有管理员和主管的ID
     use crate::entities::user;
+    use crate::constants::{ROLE_ADMIN, ROLE_SUPERVISOR};
 
     let users = user::Entity::find()
-        .filter(user::Column::RoleId.lte(2)) // 管理员和主管
+        .filter(user::Column::RoleId.eq(ROLE_ADMIN).or(user::Column::RoleId.eq(ROLE_SUPERVISOR)))
         .all(&state.db)
         .await?;
 
@@ -400,9 +405,91 @@ async fn create_notification_for_low_stock(
             user_id: Set(user.id),
             title: Set(title.to_string()),
             content: Set(content.to_string()),
-            notification_type: Set("库存预警".to_string()),
+            notification_type: Set(NOTIFICATION_TYPE_INVENTORY_ALERT.to_string()),
             is_read: Set(false),
-            priority: Set(if item.stock == 0 { Some("高".to_string()) } else { Some("中".to_string()) }),
+            priority: Set(if item.stock == 0 { Some(PRIORITY_HIGH.to_string()) } else { Some(PRIORITY_MEDIUM.to_string()) }),
+            related_id: Set(Some(item.id)),
+            related_type: Set(Some("inventory".to_string())),
+            created_at: Set(now),
+            read_at: Set(None),
+            ..Default::default()
+        };
+
+        notification.insert(&state.db).await?;
+    }
+
+    Ok(())
+}
+
+pub async fn create_reorder_notifications(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<u32>, AppError> {
+    let all_items = items::Entity::find().all(&state.db).await?;
+    let mut notification_count = 0u32;
+
+    for item in all_items.iter() {
+        let min_stock = item.min_stock.unwrap_or(0);
+
+        if item.stock <= min_stock * REORDER_MULTIPLIER && item.stock >= 0 {
+            let avg_daily_usage = if min_stock > 0 {
+                min_stock as f64 / INVENTORY_DAYS_BASE
+            } else {
+                0.0
+            };
+
+            let lead_time_days = DEFAULT_LEAD_TIME_DAYS;
+            let safety_stock = min_stock;
+            let reorder_point = (avg_daily_usage * lead_time_days as f64) as i32 + safety_stock;
+            let suggested_qty = ((avg_daily_usage * REORDER_DAYS_TARGET) as i32) - item.stock;
+            let final_suggested_qty = if suggested_qty > 0 { suggested_qty } else { min_stock * REORDER_MULTIPLIER };
+
+            let priority = if item.stock == 0 {
+                PRIORITY_HIGH
+            } else if item.stock <= min_stock {
+                PRIORITY_MEDIUM
+            } else {
+                PRIORITY_LOW
+            };
+
+            let title = format!("补货建议: {}", item.name);
+            let content = format!(
+                "物料 {} (SKU: {}) 建议补货。当前库存: {}, 再订货点: {}, 建议订货量: {}, 优先级: {}",
+                item.name, item.sku, item.stock, reorder_point, final_suggested_qty, priority
+            );
+
+            create_notification_for_reorder(&state, &item, &title, &content, priority).await?;
+            notification_count += 1;
+        }
+    }
+
+    tracing::info!("补货建议通知创建完成，生成 {} 条通知", notification_count);
+    Ok(Json(notification_count))
+}
+
+async fn create_notification_for_reorder(
+    state: &AppState,
+    item: &items::Model,
+    title: &str,
+    content: &str,
+    priority: &str,
+) -> Result<(), AppError> {
+    use crate::entities::user;
+    use crate::constants::{ROLE_ADMIN, ROLE_SUPERVISOR};
+
+    let users = user::Entity::find()
+        .filter(user::Column::RoleId.eq(ROLE_ADMIN).or(user::Column::RoleId.eq(ROLE_SUPERVISOR)))
+        .all(&state.db)
+        .await?;
+
+    for user in users {
+        let now = Utc::now();
+        let notification = notification::ActiveModel {
+            user_id: Set(user.id),
+            title: Set(title.to_string()),
+            content: Set(content.to_string()),
+            notification_type: Set(NOTIFICATION_TYPE_REORDER_SUGGESTION.to_string()),
+            is_read: Set(false),
+            priority: Set(Some(priority.to_string())),
             related_id: Set(Some(item.id)),
             related_type: Set(Some("inventory".to_string())),
             created_at: Set(now),

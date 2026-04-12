@@ -106,6 +106,9 @@ pub fn create_router(state: Arc<AppState>) -> Router{
         .route("/api/inventory/check-alerts",
                post(inventory_handler::check_and_create_alerts)
         )
+        .route("/api/inventory/create-reorder-notifications",
+               post(inventory_handler::create_reorder_notifications)
+        )
         .route("/api/inventory/items/{id}/safety-stock",
                get(inventory_handler::auto_calculate_safety_stock)
         )

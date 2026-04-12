@@ -21,6 +21,7 @@ export const API_ENDPOINTS = {
   LOW_STOCK_ALERTS: '/api/inventory/alerts/low-stock',
   REORDER_SUGGESTIONS: '/api/inventory/reorder-suggestions',
   CHECK_ALERTS: '/api/inventory/check-alerts',
+  CREATE_REORDER_NOTIFICATIONS: '/api/inventory/create-reorder-notifications',
   SAFETY_STOCK: (id) => `/api/inventory/items/${id}/safety-stock`,
 
   // 财务管理
@@ -106,6 +107,21 @@ export const ROLES = {
   ADMIN: 1,
   SUPERVISOR: 2,
   USER: 3,
+}
+
+// 通知类型
+export const NOTIFICATION_TYPES = {
+  INVENTORY_ALERT: '库存预警',
+  REORDER_SUGGESTION: '补货建议',
+  ORDER_APPROVAL: '订单审批',
+  SYSTEM: '系统通知',
+}
+
+// 通知优先级
+export const NOTIFICATION_PRIORITY = {
+  HIGH: '高',
+  MEDIUM: '中',
+  LOW: '低',
 }
 
 // 时间常量（毫秒）
