@@ -159,29 +159,61 @@
     </el-table>
 
     <!-- 新建/编辑对话框 -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑采购订单' : '新建采购订单'" width="70%">
-      <el-form :model="newOrder" label-width="120px">
-        <el-form-item label="供应商" required>
-          <el-input v-model="newOrder.supplier" placeholder="请输入供应商名称" />
-        </el-form-item>
-        <el-form-item label="预计到货日期" required>
-          <el-date-picker
-              v-model="newOrder.expected_delivery_date"
-              type="date"
-              placeholder="选择日期"
-              style="width: 100%;"
-              value-format="YYYY-MM-DD"
-          />
-        </el-form-item>
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑采购订单' : '新建采购订单'" width="1000px" :close-on-click-modal="false">
+      <el-form :model="newOrder" label-width="120px" class="purchase-form">
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="供应商" required>
+              <el-select
+                v-model="newOrder.supplier_id"
+                placeholder="请选择供应商"
+                filterable
+                @change="handleSupplierChange"
+                style="width: 100%;"
+              >
+                <el-option
+                  v-for="supplier in supplierList"
+                  :key="supplier.id"
+                  :label="supplier.name"
+                  :value="supplier.id"
+                >
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>{{ supplier.name }}</span>
+                    <span style="color: #909399; font-size: 12px;">
+                      {{ supplier.contact_person }} {{ supplier.phone ? `| ${supplier.phone}` : '' }}
+                    </span>
+                  </div>
+                </el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="预计到货日期" required>
+              <el-date-picker
+                v-model="newOrder.expected_delivery_date"
+                type="date"
+                placeholder="选择日期"
+                style="width: 100%;"
+                value-format="YYYY-MM-DD"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-divider content-position="left">
+          <el-icon><ShoppingCart /></el-icon>
+          <span style="margin-left: 8px;">采购明细</span>
+        </el-divider>
+
         <el-form-item label="采购明细" required>
           <div class="items-container">
-            <el-table :data="newOrder.items" border style="width: 100%">
+            <el-table :data="newOrder.items" border style="width: 100%" max-height="400">
               <el-table-column label="序号" width="60" align="center">
                 <template #default="scope">
-                  {{ scope.$index + 1 }}
+                  <span class="item-index">{{ scope.$index + 1 }}</span>
                 </template>
               </el-table-column>
-              <el-table-column label="物品名称" min-width="180">
+              <el-table-column label="物品名称" min-width="220">
                 <template #default="scope">
                   <el-select
                     v-model="scope.row.item_id"
@@ -200,7 +232,7 @@
                   </el-select>
                 </template>
               </el-table-column>
-              <el-table-column label="数量" width="120" align="center">
+              <el-table-column label="数量" width="140" align="center">
                 <template #default="scope">
                   <el-input-number
                     v-model="scope.row.quantity"
@@ -211,7 +243,7 @@
                   />
                 </template>
               </el-table-column>
-              <el-table-column label="单价(¥)" width="130" align="center">
+              <el-table-column label="单价(¥)" width="150" align="center">
                 <template #default="scope">
                   <el-input-number
                     v-model="scope.row.unit_price"
@@ -223,12 +255,12 @@
                   />
                 </template>
               </el-table-column>
-              <el-table-column label="小计(¥)" width="120" align="center">
+              <el-table-column label="小计(¥)" width="140" align="center">
                 <template #default="scope">
                   <span class="subtotal">¥{{ (scope.row.quantity * scope.row.unit_price).toFixed(2) }}</span>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="80" align="center">
+              <el-table-column label="操作" width="100" align="center" fixed="right">
                 <template #default="scope">
                   <el-button
                     type="danger"
@@ -236,6 +268,7 @@
                     link
                     @click="removeItem(scope.$index)"
                   >
+                    <el-icon><Delete /></el-icon>
                     删除
                   </el-button>
                 </template>
@@ -247,7 +280,8 @@
                 添加明细
               </el-button>
               <div class="total-amount">
-                订单总金额：<span class="amount">¥{{ calculateTotalAmount.toFixed(2) }}</span>
+                <span class="label">订单总金额：</span>
+                <span class="amount">¥{{ calculateTotalAmount.toFixed(2) }}</span>
               </div>
             </div>
           </div>
@@ -255,7 +289,7 @@
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveOrder">确认提交</el-button>
+        <el-button type="primary" @click="saveOrder" :loading="submitLoading">确认提交</el-button>
       </template>
     </el-dialog>
 
@@ -304,11 +338,12 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Document, Clock, CircleCheck, Money, Search, Refresh } from '@element-plus/icons-vue'
+import { Plus, Document, Clock, CircleCheck, Money, ShoppingCart, Delete } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const orders = ref([])
 const loading = ref(false)
+const submitLoading = ref(false)
 const dialogVisible = ref(false)
 const viewDialogVisible = ref(false)
 const isEdit = ref(false)
@@ -316,6 +351,7 @@ const currentId = ref(null)
 const currentOrder = ref(null)
 const currentOrderItems = ref([])
 const allItems = ref([])
+const supplierList = ref([])
 
 const userRole = ref(parseInt(localStorage.getItem('user_role') || '3'))
 const hasApprovePermission = computed(() => userRole.value === 1 || userRole.value === 2)
@@ -336,6 +372,7 @@ const searchForm = ref({
 })
 
 const newOrder = ref({
+  supplier_id: null,
   supplier: '',
   expected_delivery_date: '',
   items: []
@@ -349,6 +386,21 @@ const fetchAllItems = async () => {
     allItems.value = response.data?.items || []
   } catch (e) {
     console.error('获取物料列表失败', e)
+  }
+}
+
+const fetchSuppliers = async () => {
+  try {
+    supplierList.value = await request.get('/api/purchase-orders/suppliers')
+  } catch (e) {
+    console.error('获取供应商列表失败', e)
+  }
+}
+
+const handleSupplierChange = (supplierId) => {
+  const supplier = supplierList.value.find(s => s.id === supplierId)
+  if (supplier) {
+    newOrder.value.supplier = supplier.name
   }
 }
 
@@ -428,8 +480,8 @@ const handleItemChange = (index, itemId) => {
 }
 
 const saveOrder = async () => {
-  if (!newOrder.value.supplier) {
-    ElMessage.warning('请输入供应商名称')
+  if (!newOrder.value.supplier_id) {
+    ElMessage.warning('请选择供应商')
     return
   }
   if (!newOrder.value.expected_delivery_date) {
@@ -448,8 +500,10 @@ const saveOrder = async () => {
   }
 
   try {
+    submitLoading.value = true
     if (isEdit.value) {
       await request.put(`/api/purchase-orders/${currentId.value}`, {
+        supplier_id: newOrder.value.supplier_id,
         supplier: newOrder.value.supplier,
         expected_delivery_date: newOrder.value.expected_delivery_date,
         status: currentOrder.value?.status || '待审批',
@@ -466,6 +520,8 @@ const saveOrder = async () => {
   } catch (error) {
     const errorMsg = error.response?.data?.error || '操作失败'
     ElMessage.error(errorMsg)
+  } finally {
+    submitLoading.value = false
   }
 }
 
@@ -555,6 +611,7 @@ const handleEdit = async (row) => {
     currentId.value = row.id
     currentOrder.value = order
     newOrder.value = {
+      supplier_id: order.supplier_id,
       supplier: order.supplier,
       expected_delivery_date: order.expected_delivery_date,
       items: items.map(item => ({
@@ -576,6 +633,7 @@ const openAddDialog = () => {
   currentId.value = null
   currentOrder.value = null
   newOrder.value = {
+    supplier_id: null,
     supplier: '',
     expected_delivery_date: '',
     items: []
@@ -604,6 +662,7 @@ onMounted(() => {
     fetchOrders()
     fetchStats()
     fetchAllItems()
+    fetchSuppliers()
   }
 })
 </script>
@@ -650,7 +709,9 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-top: 15px;
-  padding: 10px 0;
+  padding: 15px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
 }
 
 .total-amount {
@@ -659,29 +720,40 @@ onMounted(() => {
   font-weight: 500;
 }
 
+.total-amount .label {
+  margin-right: 8px;
+}
+
 .amount {
   color: #f56c6c;
-  font-size: 20px;
+  font-size: 24px;
   font-weight: bold;
 }
 
 .subtotal {
   color: #409eff;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 14px;
 }
 
-:deep(.el-form-item) {
-  margin-bottom: 0;
+.item-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background-color: #ecf5ff;
+  color: #409eff;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 12px;
 }
 
-:deep(.el-form-item__label) {
-  line-height: 32px;
-}
-
-:deep(.el-input),
-:deep(.el-select),
-:deep(.el-date-editor) {
-  vertical-align: middle;
+.purchase-form :deep(.el-divider__text) {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: #303133;
 }
 
 :deep(.el-input-number) {

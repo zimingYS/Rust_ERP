@@ -2,7 +2,7 @@ use axum::routing::get;
 use axum::{middleware, Router};
 use std::sync::Arc;
 use axum::routing::post;
-use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler, finance_handler, audit_handler, report_handler, user_management_handler};
+use crate::handlers::{item_handler, health, user_handler, purchase_handler, sales_handler, inventory_handler, finance_handler, audit_handler, report_handler, user_management_handler, supplier_handler};
 use crate::middleware::{auth_middleware, require_admin_middleware};
 use crate::state::AppState;
 
@@ -38,6 +38,19 @@ pub fn create_router(state: Arc<AppState>) -> Router{
 
     // 普通用户可访问的路由
     let protected_routes = Router::new()
+        .route("/api/suppliers",
+               get(supplier_handler::get_suppliers)
+                   .post(supplier_handler::create_supplier)
+        )
+        .route("/api/suppliers/stats",
+               get(supplier_handler::get_supplier_stats)
+        )
+        .route("/api/suppliers/{id}",
+               axum::routing::get(supplier_handler::get_supplier_by_id)
+                   .put(supplier_handler::update_supplier)
+                   .delete(supplier_handler::delete_supplier)
+        )
+
         .route("/api/items",
             get(item_handler::get_items)
                 .post(item_handler::create_item)
@@ -129,8 +142,11 @@ pub fn create_router(state: Arc<AppState>) -> Router{
         .route("/api/purchase-orders/{id}/cancel",
                post(purchase_handler::cancel_purchase_order)
         )
-        .route("/api/purchase-orders/{id}/force-delete",
+        .route("/api/purchase-orders/force-delete/{id}",
                axum::routing::delete(purchase_handler::force_delete_purchase_order)
+        )
+        .route("/api/purchase-orders/suppliers",
+               get(purchase_handler::get_suppliers_for_purchase)
         )
 
         .route("/api/sales-orders",

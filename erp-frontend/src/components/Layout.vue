@@ -29,6 +29,11 @@
           <template #title>销售管理</template>
         </el-menu-item>
 
+        <el-menu-item index="/suppliers">
+          <el-icon><User /></el-icon>
+          <template #title>供应商管理</template>
+        </el-menu-item>
+
         <el-menu-item index="/inventory">
           <el-icon><Box /></el-icon>
           <template #title>库存管理</template>
@@ -134,6 +139,7 @@ const pageTitle = computed(() => {
     '/dashboard': '物料管理',
     '/purchase': '采购管理',
     '/sales': '销售管理',
+    '/suppliers': '供应商管理',
     '/inventory': '库存管理',
     '/finance': '财务管理',
     '/audit': '日志审计',

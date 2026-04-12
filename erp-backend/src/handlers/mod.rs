@@ -10,3 +10,4 @@ pub(crate) mod finance_handler;
 pub(crate) mod audit_handler;
 pub(crate) mod report_handler;
 pub(crate) mod user_management_handler;
+pub(crate) mod supplier_handler;

@@ -12,3 +12,4 @@ pub(crate) mod sales_order_item;
 pub(crate) mod inventory_adjustment;
 pub(crate) mod financial_transaction;
 pub(crate) mod audit_log;
+pub(crate) mod supplier;

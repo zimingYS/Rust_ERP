@@ -8,7 +8,7 @@ use axum::Json;
 use chrono::Local;
 use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait};
 use serde::{Deserialize, Serialize};
-use crate::entities::{purchase_order, purchase_order_item, financial_transaction, items, inventory_adjustment};
+use crate::entities::{purchase_order, purchase_order_item, financial_transaction, items, inventory_adjustment, supplier};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
 use crate::auth::UserClaims;
@@ -59,6 +59,14 @@ pub struct PurchaseOrderStats {
     pub approved: u64,
     pub total_amount: f64,
     pub this_month_amount: f64,
+}
+
+#[derive(Serialize)]
+pub struct SupplierSimpleInfo {
+    pub id: i32,
+    pub name: String,
+    pub contact_person: Option<String>,
+    pub phone: Option<String>,
 }
 
 fn validate_purchase_order_items(items: &[PurchaseOrderItemRequest]) -> Result<(), AppError> {
@@ -432,4 +440,23 @@ pub async fn force_delete_purchase_order(
     } else {
         Err(AppError::NotFound(format!("采购订单 {} 不存在", id)))
     }
+}
+
+pub async fn get_suppliers_for_purchase(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<SupplierSimpleInfo>>, AppError> {
+    let suppliers = supplier::Entity::find()
+        .filter(supplier::Column::Status.eq("启用"))
+        .order_by_asc(supplier::Column::Name)
+        .all(&state.db)
+        .await?;
+
+    let result = suppliers.iter().map(|s| SupplierSimpleInfo {
+        id: s.id,
+        name: s.name.clone(),
+        contact_person: s.contact_person.clone(),
+        phone: s.phone.clone(),
+    }).collect();
+
+    Ok(Json(result))
 }
