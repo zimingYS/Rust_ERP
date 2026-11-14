@@ -5,7 +5,7 @@
 # 在标准 bridge 网络下其他容器无法访问。部署前请按 docs/deployment.md §5.2
 # 自行把监听地址改为 0.0.0.0（或改为读取环境变量）。
 
-FROM rust:1.98-bookworm AS builder
+FROM rust:1.99-bookworm AS builder
 WORKDIR /app
 
 RUN apt-get update \
