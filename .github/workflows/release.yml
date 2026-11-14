@@ -38,7 +38,7 @@ jobs:
       - name: Build backend (release)
         run: cargo build --release -p erp-backend
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'npm'
