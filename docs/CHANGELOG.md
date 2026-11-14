@@ -12,16 +12,25 @@
 - **社区模板**：Discussion 分类模板、文档类 Issue 模板、CODEOWNERS 与 PR 自检项更新
 - **目录重组**：治理文档迁入 `docs/`，根目录只保留 README / LICENSE / CITATION.cff
 
+### 修复
+
+- **依赖安全**：`npm audit fix`（不加 `--force`）将前端漏洞 **10 项 → 0**，`package.json` 未变，仅更新 `package-lock.json`；`npm run build` 通过
+- **依赖安全**：`cargo update` + `calamine 0.34.0 → 0.38.0`（连带 `zip 9.5.1`、`quick-xml 0.42.0`）将后端 RUSTSEC **20 条 → 3 条**；`cargo check --workspace --all-targets` 通过，业务源码零改动
+- **PR 清理**：统一关闭首轮 19 个陈旧 Dependabot PR 并删除全部来源分支，远端仅保留 `main`
+- 试验性升级 `jsonwebtoken 11.1.0` 因无安全收益（仍带 `rsa 0.9.10`）已回滚，保留 10.4.0
+
 ### 变更
 
 - 默认分支由 `master` 统一为 `main`，全部文档与工作流引用同步
-- `dependabot.yml` 增加 docker 生态
+- `dependabot.yml` 增加 docker 生态，并收敛为**每月一次、每生态最多 3 个 PR、minor/patch 分组、屏蔽 `semver-major`**
+- `security.yml` 的 `npm-audit` 由报告模式升级为 **high+ 阻断合并**；`rust-audit` 因剩余 3 条存量保持报告模式
 - `.gitignore` 增加 `.workbuddy/` 与 `deploy/compose.env`
+- `docs/SECURITY_AUDIT.md` 按修复后复跑数据重写
 
 ### 已知限制
 
 - 容器化前仍需自行修改两处硬编码（`main.rs` 监听地址、`request.js` 的 `baseURL`），见 `docs/deployment.md` §5.2
-- 依赖审计存量：npm 10 项、Cargo 20 条 RUSTSEC 告警，见 `docs/SECURITY_AUDIT.md`
+- 依赖审计存量：npm **0** 项、Cargo **3** 条 RUSTSEC（`rsa` / `crypto-bigint` / `libsqlite3-sys`，均需上游 major 才能修且不在当前业务主路径），见 `docs/SECURITY_AUDIT.md`
 
 ---
 

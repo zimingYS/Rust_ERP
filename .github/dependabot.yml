@@ -1,15 +1,21 @@
 version: 2
 updates:
+  # 说明：本仓库固定 Rust 1.98.0 / Node 22 工具链，且 sea-orm、Vite、
+  # jsonwebtoken 等 major 升级会破坏编译或前后端契约。首轮全量检查曾产生
+  # 19 个 PR（含 6+ 个破坏性 major），已统一清理。此后一律只跟踪
+  # minor / patch，major 需维护者手工评估后单独处理。
+  # 每月一次、每个生态最多 3 个 PR，避免噪声淹没真实问题。
+
   - package-ecosystem: "cargo"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
       time: "09:00"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 5
-    # 把 minor / patch 合并成一个 PR，避免每个依赖一条噪声 PR；
-    # major 升级仍单独开 PR，便于逐个评估兼容性。
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       cargo-minor-patch:
         patterns: ["*"]
@@ -21,11 +27,13 @@ updates:
   - package-ecosystem: "npm"
     directory: "/erp-frontend"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
       time: "09:00"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-patch:
         patterns: ["*"]
@@ -39,6 +47,10 @@ updates:
     schedule:
       interval: "monthly"
       timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       actions-minor-patch:
         patterns: ["*"]
@@ -47,12 +59,18 @@ updates:
       - "dependencies"
       - "ci"
 
-  # 容器基础镜像：后端 Dockerfile、前端 Dockerfile 与 nginx.conf 中的版本
+  # 容器基础镜像：后端 Dockerfile、前端 Dockerfile 与 nginx.conf 中的版本。
+  # 基础镜像的 major tag（如 node:22 → 25、rust:1.98 → 1.99）会与 CI 固定
+  # 的工具链漂移，因此同样只接收 minor / patch。
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "monthly"
       timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     labels:
       - "dependencies"
       - "docker"
@@ -62,6 +80,10 @@ updates:
     schedule:
       interval: "monthly"
       timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     labels:
       - "dependencies"
       - "docker"
