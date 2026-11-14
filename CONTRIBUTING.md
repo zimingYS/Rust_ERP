@@ -11,7 +11,9 @@
 
 ## 2. 开发环境
 
-前置：Rust ≥ 1.85、Node.js ≥ 20.19、npm、PostgreSQL。
+前置：**Rust 1.98.0（含 rustfmt 1.9.0、clippy）**、Node.js ≥ 20.19、npm、PostgreSQL。
+
+> CI 固定使用 Rust 1.98.0。不同版本的 rustfmt 对块注释的排版规则不同，用其他版本执行 `cargo fmt` 会让格式门禁失败。请先 `rustup toolchain install 1.98.0`，并在本目录执行 `rustup override set 1.98.0` 保持一致。
 
 ```bash
 cp .env.example .env          # 填写本地 DATABASE_URL

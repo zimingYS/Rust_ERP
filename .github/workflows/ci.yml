@@ -22,10 +22,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      # 固定工具链：rustfmt 各版本对块注释的处理存在差异，
+      # 不固定会导致 `cargo fmt --check` 在本地与 CI 结果不一致。
+      # 与 CONTRIBUTING.md 中声明的 Rust 版本保持一致。
+      - name: Install Rust 1.98.0 (pinned)
+        run: |
+          rustup toolchain install 1.98.0 --profile minimal -c rustfmt -c clippy --no-self-update
+          rustup default 1.98.0
+          rustc --version
+          cargo fmt --version
 
       - uses: Swatinem/rust-cache@v2
 

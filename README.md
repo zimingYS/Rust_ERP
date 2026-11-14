@@ -76,7 +76,7 @@ Rust_ERP/
 
 ## 快速开始
 
-**前置条件**：Rust ≥ 1.85（edition 2024）、Node.js ≥ 20.19、npm、可本地连接的 PostgreSQL。
+**前置条件**：Rust **1.98.0**（edition 2024，CI 固定此版本以保证 rustfmt 结果一致）、Node.js ≥ 20.19、npm、可本地连接的 PostgreSQL。
 
 ```bash
 # 1. 建库
