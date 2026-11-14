@@ -84,11 +84,13 @@ jobs:
         working-directory: erp-frontend
         run: npm ci
 
-      - name: Audit npm dependencies (report only)
+      - name: Audit npm dependencies (fail on high+)
         working-directory: erp-frontend
         run: |
           npm audit --json > npm-audit.json || true
-          node -e 'const fs=require("fs");const out=process.env.GITHUB_STEP_SUMMARY;try{const d=JSON.parse(fs.readFileSync("npm-audit.json","utf8"));const m=(d.metadata&&d.metadata.vulnerabilities)||{};const items=Object.entries(d.vulnerabilities||{});let s="## npm 依赖审计\n\ncritical "+m.critical+" / high "+m.high+" / moderate "+m.moderate+" / low "+m.low+"（报告模式，不阻断合并）。详见 docs/SECURITY_AUDIT.md。\n\n";items.slice(0,25).forEach(([k,v])=>{s+="- "+k+" · "+v.severity+(v.fixAvailable?" · 有可用修复":"")+"\n"});fs.appendFileSync(out,s)}catch(e){fs.appendFileSync(out,"## npm 依赖审计\n\n未产出有效 JSON："+e.message+"\n")}'
+          node -e 'const fs=require("fs");const out=process.env.GITHUB_STEP_SUMMARY;try{const d=JSON.parse(fs.readFileSync("npm-audit.json","utf8"));const m=(d.metadata&&d.metadata.vulnerabilities)||{};const items=Object.entries(d.vulnerabilities||{});let s="## npm 依赖审计\n\ncritical "+m.critical+" / high "+m.high+" / moderate "+m.moderate+" / low "+m.low+"（阻断模式：high 及以上使本 job 失败）。详见 docs/SECURITY_AUDIT.md。\n\n";items.slice(0,25).forEach(([k,v])=>{s+="- "+k+" · "+v.severity+(v.fixAvailable?" · 有可用修复":"")+"\n"});fs.appendFileSync(out,s)}catch(e){fs.appendFileSync(out,"## npm 依赖审计\n\n未产出有效 JSON："+e.message+"\n")}'
+          # 2026-11-14 存量已清零，此后 high/critical 回归直接阻断合并
+          npm audit --audit-level=high
 
       - uses: actions/upload-artifact@v4
         with:

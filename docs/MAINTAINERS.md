@@ -13,7 +13,7 @@
 | 许可证 | PolyForm Noncommercial 1.0.0，GitHub 显示 `Other`（非 OSI，预期行为） |
 | 第一个 Release | `v1.0.0` 标签已存在；Release 由维护者在网页端 Publish |
 | Git 历史 | 已重写清除误提交的 `.env`，逐提交验证无残留 |
-| Dependabot 首次批量 PR | 按维护者决定**保留**，含 sea-orm 2.x / Vite 8 等 major 升级，需自行评估 |
+| Dependabot 首次批量 PR | 2026-11-14 已统一关闭 **19 个**并删除全部来源分支；规则收敛为月度 minor/patch 分组，见 [§6](#6-dependabot-策略) |
 
 > **公开后仍需处理**：轮换 PostgreSQL 口令、把 `JWT_SECRET` 改为环境变量注入、修复默认口令 `123456`。这是 [SECURITY_AUDIT.md](SECURITY_AUDIT.md) 的 P0 项，属业务源码改动，本轮未代为实施。
 
@@ -111,20 +111,30 @@ Issue / PR 模板引用的标签建议在 `Issues → Labels` 建齐：
 
 ## 6. Dependabot 策略
 
-`.github/dependabot.yml` 覆盖 `cargo` / `npm` / `github-actions` / `docker` 四个生态，minor + patch 按生态**分组**，major 单独开 PR 便于逐个评估。
+`.github/dependabot.yml` 覆盖 `cargo` / `npm` / `github-actions` / `docker` 五个条目（docker 分根目录与前端两个目录）。2026-11-14 收敛后的规则：
 
-- 首次全量检查会一次性开出大量 PR（含 major 破坏性升级），按维护者决定本轮**保留**，自行评估后合并或关闭。
-- 关闭批量 PR 的 API 示例：
+| 项 | 值 | 原因 |
+| --- | --- | --- |
+| 频率 | 每月 | 首轮全量检查一次开出 19 个 PR，噪声过大 |
+| `open-pull-requests-limit` | 3 / 生态 | 同上 |
+| minor / patch | 按生态分组为一个 PR | 一次 review 一批，减少 CI 轮次 |
+| `version-update:semver-major` | **全部忽略** | 本仓库固定 Rust 1.98.0 / Node 22；major 会破坏编译或让 CI 红灯 |
+
+首轮 19 个 PR 已于 2026-11-14 统一关闭（每个留说明评论）并删除来源分支，远端只剩 `main`。其安全更新由一次统一的 `chore(deps)` 提交覆盖，结果见 [SECURITY_AUDIT.md](SECURITY_AUDIT.md) §8。
+
+**major 升级需手工评估**，建议流程：新建分支 → 改 manifest → 本地 `cargo check` / `npm run build` → 跑 `docs/SECURITY_AUDIT.md` §6 的审计命令 → 确认确有安全收益再合并。反例：本轮实测 `jsonwebtoken 11.1.0` 仍依赖 `rsa 0.9.10`，告警数不变，已回滚。
+
+批量关闭 PR 的 API 示例（按需替换编号）：
 
 ```bash
-for n in $(seq 1 14); do
+for n in 1 2 3; do
   curl -s -X PATCH -H "Authorization: Bearer $TOKEN" \
     "https://api.github.com/repos/zimingYS/Rust_ERP/pulls/$n" \
     -d '{"state":"closed"}' -o /dev/null -w "PR #$n -> %{http_code}\n"
 done
 ```
 
-- 依赖升级带来安全告警变化时，同步刷新 [SECURITY_AUDIT.md](SECURITY_AUDIT.md)。
+依赖升级带来安全告警变化时，同步刷新 [SECURITY_AUDIT.md](SECURITY_AUDIT.md) 与 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 7. 后续发版
 

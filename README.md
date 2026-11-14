@@ -99,7 +99,7 @@ v1.0.0 是学习与演示版本，存在以下**明确已知的安全缺口**：
 - CORS 放行任意来源，且无速率限制、无刷新令牌与吊销机制
 - 无自动化测试用例，无数据库迁移工具，表结构由启动时 `init_tables` 创建
 - 服务仅监听 `127.0.0.1:3000`；前端 `baseURL` 亦写死该地址（容器化前置修改见 [部署文档](docs/deployment.md#52-部署前置修改必须自行完成)）
-- 依赖审计存量：npm 10 项、Cargo 20 条 RUSTSEC 告警，详见 [检查报告](docs/SECURITY_AUDIT.md)
+- 依赖审计存量：npm **0** 项、Cargo **3** 条 RUSTSEC 告警（均为需上游 major 才能修的传递依赖，不在当前业务主路径），详见 [检查报告](docs/SECURITY_AUDIT.md)
 
 因此**不要将其暴露到公网或存放真实业务数据**。完整说明与修复建议见 [docs/SECURITY.md](docs/SECURITY.md)。
 
