@@ -20,7 +20,7 @@ jobs:
     name: backend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # 固定工具链：rustfmt 各版本对块注释的处理存在差异，
       # 不固定会导致 `cargo fmt --check` 在本地与 CI 结果不一致。
@@ -52,7 +52,7 @@ jobs:
     name: frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:

@@ -32,7 +32,7 @@ jobs:
           - name: erp-frontend
             dockerfile: erp-frontend/Dockerfile
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # GHCR 镜像路径必须全小写，GitHub 登录名可能含大写字母
       - name: Resolve owner and version
