@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 这两个 job 名称是分支保护规则里的「必需状态检查」，改名需同步更新保护规则。
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Compile (all targets)
+        run: cargo check --workspace --all-targets
+
+      - name: Test
+        run: cargo test --workspace
+
+      # v1.0.0 存量 15 条 clippy 告警，暂以报告模式运行、不阻断合并。
+      # 清理完存量告警后，可改为 `-- -D warnings` 提升门禁。
+      - name: Clippy (report only)
+        run: cargo clippy --workspace --all-targets --message-format=short
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: erp-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: erp-frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: erp-frontend
+        run: npm run build

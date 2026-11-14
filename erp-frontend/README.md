@@ -1,5 +1,20 @@
-# Vue 3 + Vite
+# erp-frontend
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Rust_ERP 的前端子项目：Vue 3 + Vite 7 + Element Plus + ECharts。
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+项目级说明、架构、许可与贡献规范请见 [仓库根目录 README](../README.md)。
+
+## 开发
+
+前置条件：Node.js ≥ 20.19、npm。
+
+```bash
+npm ci
+npm run dev      # http://localhost:5173
+npm run build    # 产物输出到 dist/
+npm run preview  # 本地预览生产构建
+```
+
+后端需同时运行在 `http://127.0.0.1:3000`。Axios 实例在 `src/utils/request.js` 中已配置该 `baseURL`，接口路径常量集中在 `src/api/constants.js`。
+
+> `npm ci` 依赖 `package-lock.json`，升级依赖后请一并提交锁文件，否则 CI 会失败。

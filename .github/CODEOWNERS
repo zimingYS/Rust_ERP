@@ -1,0 +1,13 @@
+# CODEOWNERS
+# 主分支保护规则启用了「Require review from Code Owners」，
+# 以下路径的变更必须由仓库所有者批准。后匹配的行优先级更高。
+
+# 默认：所有文件
+*                       @zimingYS
+
+# CI / 发版 / 依赖与治理配置
+/.github/               @zimingYS
+/.gitignore             @zimingYS
+/.gitattributes         @zimingYS
+/SECURITY.md            @zimingYS
+/LICENSE                @zimingYS

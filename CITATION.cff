@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "如引用本项目，请使用以下元数据。"
+title: "Rust_ERP：基于 Rust 与 Vue 3 的企业资源计划系统"
+abstract: "毕业设计作品：包含采购、销售、库存、财务、工作流审批、通知与审计模块的 ERP 系统。"
+type: software
+authors:
+  - alias: zimingYS
+    website: "https://github.com/zimingYS"
+# 维护者：用于论文或正式引用时，请补充真实姓名、单位与起止年份
+license: PolyForm-Noncommercial-1.0.0
+repository-code: "https://github.com/zimingYS/Rust_ERP"
+version: 1.0.0
+date-released: 2026-11-14
+keywords:
+  - ERP
+  - Rust
+  - Axum
+  - SeaORM
+  - Vue
+  - PostgreSQL
