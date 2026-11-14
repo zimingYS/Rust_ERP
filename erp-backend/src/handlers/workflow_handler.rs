@@ -1,25 +1,20 @@
 /*
     工作流引擎处理器
 */
-use std::sync::Arc;
-use axum::extract::{Path, State, Extension};
-use axum::Json;
-use chrono::Utc;
-use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait};
-use serde::{Deserialize, Serialize};
-use crate::entities::{workflow_instance, workflow_step, user};
-use crate::handlers::error::AppError;
-use crate::state::AppState;
 use crate::auth::UserClaims;
 use crate::constants::{
-    WORKFLOW_STATUS_PENDING,
-    WORKFLOW_STATUS_WAITING,
-    WORKFLOW_STATUS_APPROVED,
-    WORKFLOW_STATUS_REJECTED,
-    WORKFLOW_STATUS_COMPLETED,
-    ROLE_SUPERVISOR,
-    ROLE_ADMIN,
+    ROLE_ADMIN, ROLE_SUPERVISOR, WORKFLOW_STATUS_APPROVED, WORKFLOW_STATUS_COMPLETED,
+    WORKFLOW_STATUS_PENDING, WORKFLOW_STATUS_REJECTED, WORKFLOW_STATUS_WAITING,
 };
+use crate::entities::{user, workflow_instance, workflow_step};
+use crate::handlers::error::AppError;
+use crate::state::AppState;
+use axum::Json;
+use axum::extract::{Extension, Path, State};
+use chrono::Utc;
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Deserialize)]
 pub struct StartWorkflowRequest {
@@ -161,7 +156,10 @@ async fn create_workflow_steps(
             steps.push(convert_step_to_response(state, step1).await?);
         }
         _ => {
-            return Err(AppError::BadRequest(format!("不支持的工作流类型: {}", workflow_type)));
+            return Err(AppError::BadRequest(format!(
+                "不支持的工作流类型: {}",
+                workflow_type
+            )));
         }
     }
 
@@ -173,9 +171,7 @@ async fn convert_step_to_response(
     step: workflow_step::Model,
 ) -> Result<WorkflowStepResponse, AppError> {
     let approver_name = if let Some(approver_id) = step.approver_id {
-        let user = user::Entity::find_by_id(approver_id)
-            .one(&state.db)
-            .await?;
+        let user = user::Entity::find_by_id(approver_id).one(&state.db).await?;
         user.map(|u| u.username)
     } else {
         None
@@ -302,7 +298,11 @@ async fn update_business_status(
                 .await?
             {
                 let mut order_model: purchase_order::ActiveModel = order.into();
-                order_model.status = Set(if action == "approved" { "已批准".to_string() } else { "已拒绝".to_string() });
+                order_model.status = Set(if action == "approved" {
+                    "已批准".to_string()
+                } else {
+                    "已拒绝".to_string()
+                });
                 order_model.update(&state.db).await?;
             }
         }
@@ -312,7 +312,11 @@ async fn update_business_status(
                 .await?
             {
                 let mut order_model: sales_order::ActiveModel = order.into();
-                order_model.status = Set(if action == "approved" { "已确认".to_string() } else { "已拒绝".to_string() });
+                order_model.status = Set(if action == "approved" {
+                    "已确认".to_string()
+                } else {
+                    "已拒绝".to_string()
+                });
                 order_model.update(&state.db).await?;
             }
         }
@@ -364,8 +368,9 @@ pub async fn get_my_pending_approvals(
     let pending_steps = workflow_step::Entity::find()
         .filter(workflow_step::Column::Status.eq(WORKFLOW_STATUS_PENDING))
         .filter(
-            workflow_step::Column::ApproverId.eq(claims.user_id)
-                .or(workflow_step::Column::ApproverRoleId.is_null())
+            workflow_step::Column::ApproverId
+                .eq(claims.user_id)
+                .or(workflow_step::Column::ApproverRoleId.is_null()),
         )
         .all(&state.db)
         .await?;

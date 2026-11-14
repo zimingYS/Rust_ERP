@@ -1,13 +1,15 @@
-use std::sync::Arc;
-use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
-use axum::Json;
-use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait, PaginatorTrait};
-use serde::{Deserialize, Serialize};
+use crate::constants::{DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE};
 use crate::entities::items::{ActiveModel, Column, Entity, Model};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
-use crate::constants::{DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE};
+use axum::Json;
+use axum::extract::{Path, Query, State};
+use axum::http::StatusCode;
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, Set,
+};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Deserialize)]
 pub struct CreateItemRequest {
@@ -71,7 +73,10 @@ pub async fn get_items(
     Query(params): Query<ItemQueryParams>,
 ) -> Result<Json<ItemsListResponse>, AppError> {
     let page = params.page.unwrap_or(1);
-    let page_size = params.page_size.unwrap_or(DEFAULT_PAGE_SIZE).min(MAX_PAGE_SIZE);
+    let page_size = params
+        .page_size
+        .unwrap_or(DEFAULT_PAGE_SIZE)
+        .min(MAX_PAGE_SIZE);
 
     let mut query = Entity::find();
 
@@ -150,11 +155,14 @@ pub async fn create_item(
 
     let inserted_item = new_item.insert(&state.db).await?;
 
-    Ok((StatusCode::CREATED, Json(ItemResponse {
-        code: 201,
-        message: "创建成功".to_string(),
-        data: Some(inserted_item),
-    })))
+    Ok((
+        StatusCode::CREATED,
+        Json(ItemResponse {
+            code: 201,
+            message: "创建成功".to_string(),
+            data: Some(inserted_item),
+        }),
+    ))
 }
 
 pub async fn update_item(
@@ -174,7 +182,10 @@ pub async fn update_item(
         .await?;
 
     if existing_sku.is_some() {
-        return Err(AppError::BadRequest(format!("SKU {} 已被其他物料使用", payload.sku)));
+        return Err(AppError::BadRequest(format!(
+            "SKU {} 已被其他物料使用",
+            payload.sku
+        )));
     }
 
     if payload.stock < 0 {
@@ -202,9 +213,7 @@ pub async fn delete_item(
     State(state): State<Arc<AppState>>,
     Path(id): Path<i32>,
 ) -> Result<StatusCode, AppError> {
-    let res = Entity::delete_by_id(id)
-        .exec(&state.db)
-        .await?;
+    let res = Entity::delete_by_id(id).exec(&state.db).await?;
 
     if res.rows_affected > 0 {
         Ok(StatusCode::NO_CONTENT)
@@ -239,7 +248,10 @@ pub async fn adjust_stock(
 
     tracing::info!(
         "库存调整 - 物料ID: {}, 调整量: {}, 原因: {:?}, 新库存: {}",
-        id, payload.adjustment, payload.reason, new_stock
+        id,
+        payload.adjustment,
+        payload.reason,
+        new_stock
     );
 
     Ok(Json(ItemResponse {
@@ -262,7 +274,11 @@ pub async fn batch_delete_items(
         .exec(&state.db)
         .await?;
 
-    tracing::info!("批量删除物料: {:?}, 影响行数: {}", ids, result.rows_affected);
+    tracing::info!(
+        "批量删除物料: {:?}, 影响行数: {}",
+        ids,
+        result.rows_affected
+    );
 
     Ok(Json(serde_json::json!({
         "code": 200,

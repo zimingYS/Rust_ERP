@@ -1,17 +1,17 @@
 /*
     供应商管理接口
 */
-use std::sync::Arc;
-use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
-use axum::Json;
-use chrono::Utc;
-use rust_decimal::Decimal;
-use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait};
-use serde::{Deserialize, Serialize};
 use crate::entities::supplier;
 use crate::handlers::error::AppError;
 use crate::state::AppState;
+use axum::Json;
+use axum::extract::{Path, Query, State};
+use axum::http::StatusCode;
+use chrono::Utc;
+use rust_decimal::Decimal;
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Deserialize)]
 pub struct CreateSupplierRequest {
@@ -67,9 +67,10 @@ pub async fn get_suppliers(
 
     if let Some(keyword) = &params.keyword {
         query = query.filter(
-            supplier::Column::Name.contains(keyword)
+            supplier::Column::Name
+                .contains(keyword)
                 .or(supplier::Column::ContactPerson.contains(keyword))
-                .or(supplier::Column::Phone.contains(keyword))
+                .or(supplier::Column::Phone.contains(keyword)),
         );
     }
 
@@ -98,7 +99,8 @@ pub async fn get_supplier_stats(
     let active_suppliers = all_suppliers.iter().filter(|s| s.status == "启用").count() as u64;
     let inactive_suppliers = all_suppliers.iter().filter(|s| s.status == "停用").count() as u64;
 
-    let ratings: Vec<f64> = all_suppliers.iter()
+    let ratings: Vec<f64> = all_suppliers
+        .iter()
         .filter_map(|s| s.rating.map(|r| r as f64))
         .collect();
 
@@ -205,9 +207,7 @@ pub async fn delete_supplier(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("供应商 {} 不存在", id)))?;
 
-    let res = supplier::Entity::delete_by_id(id)
-        .exec(&state.db)
-        .await?;
+    let res = supplier::Entity::delete_by_id(id).exec(&state.db).await?;
 
     if res.rows_affected > 0 {
         tracing::info!("删除供应商成功: ID={}, 名称={}", id, supplier_model.name);

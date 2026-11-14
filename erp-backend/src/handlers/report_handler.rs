@@ -1,17 +1,17 @@
 /*
     报表导出接口
 */
-use std::sync::Arc;
+use crate::entities::{financial_transaction, items, purchase_order, sales_order};
+use crate::handlers::error::AppError;
+use crate::state::AppState;
 use axum::extract::{Query, State};
 use axum::http::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use axum::response::{IntoResponse, Response};
 use chrono::Local;
 use csv::WriterBuilder;
-use sea_orm::{EntityTrait, QueryFilter, ColumnTrait, QueryOrder};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use serde::Deserialize;
-use crate::entities::{purchase_order, sales_order, items, financial_transaction};
-use crate::handlers::error::AppError;
-use crate::state::AppState;
+use std::sync::Arc;
 
 #[derive(Deserialize)]
 pub struct ExportQueryParams {
@@ -48,14 +48,27 @@ pub async fn export_purchase_orders(
 
         let headers = [
             (CONTENT_TYPE, "application/json"),
-            (CONTENT_DISPOSITION, &format!("attachment; filename=\"{}\"", filename)),
+            (
+                CONTENT_DISPOSITION,
+                &format!("attachment; filename=\"{}\"", filename),
+            ),
         ];
 
         Ok((headers, json_data).into_response())
     } else {
         let mut wtr = WriterBuilder::new().from_writer(vec![]);
 
-        wtr.write_record(&["ID", "订单编号", "供应商", "下单日期", "预计到货", "状态", "总金额", "创建人", "创建时间"])?;
+        wtr.write_record(&[
+            "ID",
+            "订单编号",
+            "供应商",
+            "下单日期",
+            "预计到货",
+            "状态",
+            "总金额",
+            "创建人",
+            "创建时间",
+        ])?;
 
         for order in &orders {
             wtr.write_record(&[
@@ -71,13 +84,18 @@ pub async fn export_purchase_orders(
             ])?;
         }
 
-        let data = wtr.into_inner().map_err(|e| AppError::CsvInnerError(e.to_string()))?;
+        let data = wtr
+            .into_inner()
+            .map_err(|e| AppError::CsvInnerError(e.to_string()))?;
         let timestamp = Local::now().format("%Y%m%d_%H%M%S");
         let filename = format!("purchase_orders_{}.csv", timestamp);
 
         let headers = [
             (CONTENT_TYPE, "text/csv"),
-            (CONTENT_DISPOSITION, &format!("attachment; filename=\"{}\"", filename)),
+            (
+                CONTENT_DISPOSITION,
+                &format!("attachment; filename=\"{}\"", filename),
+            ),
         ];
 
         Ok((headers, data).into_response())
@@ -112,14 +130,27 @@ pub async fn export_sales_orders(
 
         let headers = [
             (CONTENT_TYPE, "application/json"),
-            (CONTENT_DISPOSITION, &format!("attachment; filename=\"{}\"", filename)),
+            (
+                CONTENT_DISPOSITION,
+                &format!("attachment; filename=\"{}\"", filename),
+            ),
         ];
 
         Ok((headers, json_data).into_response())
     } else {
         let mut wtr = WriterBuilder::new().from_writer(vec![]);
 
-        wtr.write_record(&["ID", "订单编号", "客户", "下单日期", "交付日期", "状态", "总金额", "创建人", "创建时间"])?;
+        wtr.write_record(&[
+            "ID",
+            "订单编号",
+            "客户",
+            "下单日期",
+            "交付日期",
+            "状态",
+            "总金额",
+            "创建人",
+            "创建时间",
+        ])?;
 
         for order in &orders {
             wtr.write_record(&[
@@ -135,22 +166,25 @@ pub async fn export_sales_orders(
             ])?;
         }
 
-        let data = wtr.into_inner().map_err(|e| AppError::CsvInnerError(e.to_string()))?;
+        let data = wtr
+            .into_inner()
+            .map_err(|e| AppError::CsvInnerError(e.to_string()))?;
         let timestamp = Local::now().format("%Y%m%d_%H%M%S");
         let filename = format!("sales_orders_{}.csv", timestamp);
 
         let headers = [
             (CONTENT_TYPE, "text/csv"),
-            (CONTENT_DISPOSITION, &format!("attachment; filename=\"{}\"", filename)),
+            (
+                CONTENT_DISPOSITION,
+                &format!("attachment; filename=\"{}\"", filename),
+            ),
         ];
 
         Ok((headers, data).into_response())
     }
 }
 
-pub async fn export_inventory(
-    State(state): State<Arc<AppState>>,
-) -> Result<Response, AppError> {
+pub async fn export_inventory(State(state): State<Arc<AppState>>) -> Result<Response, AppError> {
     let items_list = items::Entity::find()
         .order_by_asc(items::Column::Id)
         .all(&state.db)
@@ -158,7 +192,15 @@ pub async fn export_inventory(
 
     let mut wtr = WriterBuilder::new().from_writer(vec![]);
 
-    wtr.write_record(&["ID", "物料名称", "SKU", "当前库存", "单位", "最低库存", "库存状态"])?;
+    wtr.write_record(&[
+        "ID",
+        "物料名称",
+        "SKU",
+        "当前库存",
+        "单位",
+        "最低库存",
+        "库存状态",
+    ])?;
 
     for item in &items_list {
         let min_stock = item.min_stock.unwrap_or(0);
@@ -181,13 +223,18 @@ pub async fn export_inventory(
         ])?;
     }
 
-    let data = wtr.into_inner().map_err(|e| AppError::CsvInnerError(e.to_string()))?;
+    let data = wtr
+        .into_inner()
+        .map_err(|e| AppError::CsvInnerError(e.to_string()))?;
     let timestamp = Local::now().format("%Y%m%d_%H%M%S");
     let filename = format!("inventory_{}.csv", timestamp);
 
     let headers = [
         (CONTENT_TYPE, "text/csv"),
-        (CONTENT_DISPOSITION, &format!("attachment; filename=\"{}\"", filename)),
+        (
+            CONTENT_DISPOSITION,
+            &format!("attachment; filename=\"{}\"", filename),
+        ),
     ];
 
     Ok((headers, data).into_response())
@@ -214,7 +261,17 @@ pub async fn export_financial_transactions(
 
     let mut wtr = WriterBuilder::new().from_writer(vec![]);
 
-    wtr.write_record(&["ID", "交易类型", "分类", "金额", "描述", "交易日期", "关联订单ID", "关联订单类型", "创建时间"])?;
+    wtr.write_record(&[
+        "ID",
+        "交易类型",
+        "分类",
+        "金额",
+        "描述",
+        "交易日期",
+        "关联订单ID",
+        "关联订单类型",
+        "创建时间",
+    ])?;
 
     for transaction in &transactions {
         wtr.write_record(&[
@@ -224,19 +281,27 @@ pub async fn export_financial_transactions(
             format!("{:.2}", transaction.amount),
             transaction.description.clone().unwrap_or_default(),
             transaction.transaction_date.clone(),
-            transaction.related_order_id.map(|id| id.to_string()).unwrap_or_default(),
+            transaction
+                .related_order_id
+                .map(|id| id.to_string())
+                .unwrap_or_default(),
             transaction.related_order_type.clone().unwrap_or_default(),
             transaction.created_at.clone(),
         ])?;
     }
 
-    let data = wtr.into_inner().map_err(|e| AppError::CsvInnerError(e.to_string()))?;
+    let data = wtr
+        .into_inner()
+        .map_err(|e| AppError::CsvInnerError(e.to_string()))?;
     let timestamp = Local::now().format("%Y%m%d_%H%M%S");
     let filename = format!("financial_transactions_{}.csv", timestamp);
 
     let headers = [
         (CONTENT_TYPE, "text/csv"),
-        (CONTENT_DISPOSITION, &format!("attachment; filename=\"{}\"", filename)),
+        (
+            CONTENT_DISPOSITION,
+            &format!("attachment; filename=\"{}\"", filename),
+        ),
     ];
 
     Ok((headers, data).into_response())
@@ -265,7 +330,19 @@ pub async fn export_audit_logs(
 
     let mut wtr = WriterBuilder::new().from_writer(vec![]);
 
-    wtr.write_record(&["ID", "用户ID", "用户名", "操作", "模块", "方法", "路径", "IP地址", "状态码", "描述", "操作时间"])?;
+    wtr.write_record(&[
+        "ID",
+        "用户ID",
+        "用户名",
+        "操作",
+        "模块",
+        "方法",
+        "路径",
+        "IP地址",
+        "状态码",
+        "描述",
+        "操作时间",
+    ])?;
 
     for log in &logs {
         wtr.write_record(&[
@@ -283,13 +360,18 @@ pub async fn export_audit_logs(
         ])?;
     }
 
-    let data = wtr.into_inner().map_err(|e| AppError::CsvInnerError(e.to_string()))?;
+    let data = wtr
+        .into_inner()
+        .map_err(|e| AppError::CsvInnerError(e.to_string()))?;
     let timestamp = Local::now().format("%Y%m%d_%H%M%S");
     let filename = format!("audit_logs_{}.csv", timestamp);
 
     let headers = [
         (CONTENT_TYPE, "text/csv"),
-        (CONTENT_DISPOSITION, &format!("attachment; filename=\"{}\"", filename)),
+        (
+            CONTENT_DISPOSITION,
+            &format!("attachment; filename=\"{}\"", filename),
+        ),
     ];
 
     Ok((headers, data).into_response())

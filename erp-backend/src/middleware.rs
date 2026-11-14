@@ -1,16 +1,8 @@
-use axum::{
-    extract::Request,
-    http::StatusCode,
-    middleware::Next,
-    response::Response,
-};
-use crate::auth::{UserClaims, JWT_SECRET};
+use crate::auth::{JWT_SECRET, UserClaims};
 use crate::constants::ROLE_ADMIN;
+use axum::{extract::Request, http::StatusCode, middleware::Next, response::Response};
 
-pub async fn auth_middleware(
-    req: Request,
-    next: Next,
-) -> Result<Response, StatusCode> {
+pub async fn auth_middleware(req: Request, next: Next) -> Result<Response, StatusCode> {
     let auth_header = req
         .headers()
         .get("authorization")
@@ -19,7 +11,7 @@ pub async fn auth_middleware(
 
     let token = auth_header.ok_or(StatusCode::UNAUTHORIZED)?;
 
-    use jsonwebtoken::{decode, DecodingKey, Validation};
+    use jsonwebtoken::{DecodingKey, Validation, decode};
 
     let decoded = decode::<UserClaims>(
         token,
@@ -34,11 +26,10 @@ pub async fn auth_middleware(
     Ok(next.run(req).await)
 }
 
-pub async fn require_admin_middleware(
-    req: Request,
-    next: Next,
-) -> Result<Response, StatusCode> {
-    let claims = req.extensions().get::<UserClaims>()
+pub async fn require_admin_middleware(req: Request, next: Next) -> Result<Response, StatusCode> {
+    let claims = req
+        .extensions()
+        .get::<UserClaims>()
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
     if claims.role_id != ROLE_ADMIN {

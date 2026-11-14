@@ -2,13 +2,17 @@
     仪表盘数据接口
 */
 use crate::constants::TREND_DAYS;
-use crate::entities::{financial_transaction, items, purchase_order, sales_order, sales_order_item};
+use crate::entities::{
+    financial_transaction, items, purchase_order, sales_order, sales_order_item,
+};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
-use axum::extract::State;
 use axum::Json;
+use axum::extract::State;
 use chrono::{Datelike, Duration, Local};
-use sea_orm::{ColumnTrait, EntityTrait, FromQueryResult, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect};
+use sea_orm::{
+    ColumnTrait, EntityTrait, FromQueryResult, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
+};
 use serde::Serialize;
 use std::sync::Arc;
 
@@ -92,13 +96,14 @@ pub async fn get_dashboard_stats(
         .count(&state.db)
         .await?
         + purchase_order::Entity::find()
-        .filter(purchase_order::Column::Status.eq("待审批"))
-        .count(&state.db)
-        .await?;
+            .filter(purchase_order::Column::Status.eq("待审批"))
+            .count(&state.db)
+            .await?;
 
     // 低库存统计
     let all_items = items::Entity::find().all(&state.db).await?;
-    let low_stock_count = all_items.iter()
+    let low_stock_count = all_items
+        .iter()
         .filter(|item| {
             let min_stock = item.min_stock.unwrap_or(0);
             item.stock <= min_stock
@@ -107,11 +112,13 @@ pub async fn get_dashboard_stats(
 
     // 财务统计
     let transactions = financial_transaction::Entity::find().all(&state.db).await?;
-    let total_revenue = transactions.iter()
+    let total_revenue = transactions
+        .iter()
         .filter(|t| t.transaction_type == "收入")
         .map(|t| t.amount)
         .sum();
-    let total_expenses = transactions.iter()
+    let total_expenses = transactions
+        .iter()
         .filter(|t| t.transaction_type == "支出")
         .map(|t| t.amount)
         .sum();
@@ -139,7 +146,9 @@ pub async fn get_sales_trend(
     for i in (0..TREND_DAYS).rev() {
         let date = now.clone() - Duration::days(i);
         let date_str = date.format("%Y-%m-%d").to_string();
-        let next_date = (date.clone() + Duration::days(1)).format("%Y-%m-%d").to_string();
+        let next_date = (date.clone() + Duration::days(1))
+            .format("%Y-%m-%d")
+            .to_string();
 
         let orders = sales_order::Entity::find()
             .filter(sales_order::Column::OrderDate.gte(date_str.clone()))
@@ -170,7 +179,9 @@ pub async fn get_purchase_trend(
     for i in (0..TREND_DAYS).rev() {
         let date = now.clone() - Duration::days(i);
         let date_str = date.format("%Y-%m-%d").to_string();
-        let next_date = (date.clone() + Duration::days(1)).format("%Y-%m-%d").to_string();
+        let next_date = (date.clone() + Duration::days(1))
+            .format("%Y-%m-%d")
+            .to_string();
 
         let orders = purchase_order::Entity::find()
             .filter(purchase_order::Column::OrderDate.gte(date_str.clone()))
@@ -196,23 +207,23 @@ pub async fn get_inventory_distribution(
 ) -> Result<Json<Vec<CategoryDistribution>>, AppError> {
     let all_items = items::Entity::find().all(&state.db).await?;
 
-    let normal_count = all_items.iter()
+    let normal_count = all_items
+        .iter()
         .filter(|item| {
             let min_stock = item.min_stock.unwrap_or(0);
             item.stock > min_stock
         })
         .count() as f64;
 
-    let low_stock_count = all_items.iter()
+    let low_stock_count = all_items
+        .iter()
         .filter(|item| {
             let min_stock = item.min_stock.unwrap_or(0);
             item.stock > 0 && item.stock <= min_stock
         })
         .count() as f64;
 
-    let out_of_stock_count = all_items.iter()
-        .filter(|item| item.stock == 0)
-        .count() as f64;
+    let out_of_stock_count = all_items.iter().filter(|item| item.stock == 0).count() as f64;
 
     let total = all_items.len() as f64;
 
@@ -220,17 +231,29 @@ pub async fn get_inventory_distribution(
         CategoryDistribution {
             category: "正常".to_string(),
             amount: normal_count,
-            percentage: if total > 0.0 { (normal_count / total) * 100.0 } else { 0.0 },
+            percentage: if total > 0.0 {
+                (normal_count / total) * 100.0
+            } else {
+                0.0
+            },
         },
         CategoryDistribution {
             category: "低库存".to_string(),
             amount: low_stock_count,
-            percentage: if total > 0.0 { (low_stock_count / total) * 100.0 } else { 0.0 },
+            percentage: if total > 0.0 {
+                (low_stock_count / total) * 100.0
+            } else {
+                0.0
+            },
         },
         CategoryDistribution {
             category: "缺货".to_string(),
             amount: out_of_stock_count,
-            percentage: if total > 0.0 { (out_of_stock_count / total) * 100.0 } else { 0.0 },
+            percentage: if total > 0.0 {
+                (out_of_stock_count / total) * 100.0
+            } else {
+                0.0
+            },
         },
     ]))
 }
@@ -259,12 +282,14 @@ pub async fn get_financial_summary(
 ) -> Result<Json<Vec<CategoryDistribution>>, AppError> {
     let transactions = financial_transaction::Entity::find().all(&state.db).await?;
 
-    let income = transactions.iter()
+    let income = transactions
+        .iter()
         .filter(|t| t.transaction_type == "收入")
         .map(|t| t.amount)
         .sum();
 
-    let expense = transactions.iter()
+    let expense = transactions
+        .iter()
         .filter(|t| t.transaction_type == "支出")
         .map(|t| t.amount)
         .sum();
@@ -275,12 +300,20 @@ pub async fn get_financial_summary(
         CategoryDistribution {
             category: "收入".to_string(),
             amount: income,
-            percentage: if total > 0.0 { (income / total) * 100.0 } else { 0.0 },
+            percentage: if total > 0.0 {
+                (income / total) * 100.0
+            } else {
+                0.0
+            },
         },
         CategoryDistribution {
             category: "支出".to_string(),
             amount: expense,
-            percentage: if total > 0.0 { (expense / total) * 100.0 } else { 0.0 },
+            percentage: if total > 0.0 {
+                (expense / total) * 100.0
+            } else {
+                0.0
+            },
         },
     ]))
 }

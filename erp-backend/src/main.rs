@@ -1,19 +1,19 @@
-mod state;
-mod routes;
+mod audit_middleware;
+mod auth;
+mod constants;
+mod database;
 mod entities;
 mod handlers;
-mod auth;
 mod middleware;
-mod database;
-mod audit_middleware;
-mod constants;
 mod permissions;
+mod routes;
+mod state;
 
+use crate::state::AppState;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
-use crate::state::AppState;
-use tracing_subscriber::{EnvFilter};
+use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 
 #[tokio::main]
@@ -37,15 +37,15 @@ async fn main() {
     let state = Arc::new(AppState { db });
 
     //  配置中间件
-    let cors = CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any);
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
 
     // 加载路由
-    let app = routes::create_router(state.clone())
-        .layer(cors)
-        .layer(axum::middleware::from_fn_with_state(
-            state,
-            audit_middleware::audit_logger_middleware
-        ));
+    let app = routes::create_router(state.clone()).layer(cors).layer(
+        axum::middleware::from_fn_with_state(state, audit_middleware::audit_logger_middleware),
+    );
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     println!("Server running at http://{}", addr);
@@ -53,4 +53,3 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
-

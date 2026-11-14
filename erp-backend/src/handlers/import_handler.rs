@@ -1,18 +1,18 @@
 /*
     数据导入处理器
 */
-use std::sync::Arc;
-use axum::extract::{Multipart, State, Extension};
-use axum::http::StatusCode;
-use axum::Json;
-use chrono::Utc;
-use sea_orm::{ActiveModelTrait, EntityTrait, Set, QueryFilter, ColumnTrait};
-use serde::Serialize;
-use calamine::{Reader, open_workbook_auto, Sheets, DataType};
+use crate::auth::UserClaims;
 use crate::entities::{items, supplier};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
-use crate::auth::UserClaims;
+use axum::Json;
+use axum::extract::{Extension, Multipart, State};
+use axum::http::StatusCode;
+use calamine::{DataType, Reader, Sheets, open_workbook_auto};
+use chrono::Utc;
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+use serde::Serialize;
+use std::sync::Arc;
 
 #[derive(Serialize)]
 pub struct ImportResult {
@@ -32,9 +32,16 @@ pub async fn import_products(
         errors: Vec::new(),
     };
 
-    while let Some(field) = multipart.next_field().await.map_err(|e| AppError::InternalError(e.to_string()))? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::InternalError(e.to_string()))?
+    {
         let file_name = field.file_name().unwrap_or_default().to_string();
-        let data = field.bytes().await.map_err(|e| AppError::InternalError(e.to_string()))?;
+        let data = field
+            .bytes()
+            .await
+            .map_err(|e| AppError::InternalError(e.to_string()))?;
 
         if file_name.is_empty() {
             continue;
@@ -45,18 +52,24 @@ pub async fn import_products(
             match parse_csv_and_import(&state, &data, &mut result).await {
                 Ok(_) => {}
                 Err(e) => {
-                    result.errors.push(format!("文件 {} 解析失败: {}", file_name, e));
+                    result
+                        .errors
+                        .push(format!("文件 {} 解析失败: {}", file_name, e));
                 }
             }
         } else if file_name.ends_with(".xlsx") || file_name.ends_with(".xls") {
             match parse_excel_and_import(&state, &data, &mut result).await {
                 Ok(_) => {}
                 Err(e) => {
-                    result.errors.push(format!("文件 {} 解析失败: {}", file_name, e));
+                    result
+                        .errors
+                        .push(format!("文件 {} 解析失败: {}", file_name, e));
                 }
             }
         } else {
-            result.errors.push(format!("不支持的文件格式: {}", file_name));
+            result
+                .errors
+                .push(format!("不支持的文件格式: {}", file_name));
         }
     }
 
@@ -118,9 +131,17 @@ async fn parse_csv_and_import(
                     name: Set(name),
                     sku: Set(sku),
                     stock: Set(stock),
-                    unit: Set(Some(if unit.is_empty() { "个".to_string() } else { unit })),
+                    unit: Set(Some(if unit.is_empty() {
+                        "个".to_string()
+                    } else {
+                        unit
+                    })),
                     min_stock: Set(min_stock),
-                    description: Set(if description.is_empty() { None } else { Some(description) }),
+                    description: Set(if description.is_empty() {
+                        None
+                    } else {
+                        Some(description)
+                    }),
                     ..Default::default()
                 };
 
@@ -151,8 +172,8 @@ async fn parse_excel_and_import(
     let temp_path = format!("/tmp/import_{}.xlsx", Utc::now().timestamp());
     std::fs::write(&temp_path, data).map_err(|e| format!("写入临时文件失败: {}", e))?;
 
-    let mut workbook: Sheets<_> = open_workbook_auto(&temp_path)
-        .map_err(|e| format!("Excel解析失败: {}", e))?;
+    let mut workbook: Sheets<_> =
+        open_workbook_auto(&temp_path).map_err(|e| format!("Excel解析失败: {}", e))?;
 
     if let Some(Ok(range)) = workbook.worksheet_range_at(0) {
         for (row_idx, row) in range.rows().enumerate() {
@@ -170,17 +191,27 @@ async fn parse_excel_and_import(
             let name = row[0].to_string();
             let sku = row[1].to_string();
             let stock = row[2].as_f64().unwrap_or(0.0) as i32;
-            let unit = if row.len() > 3 { row[3].to_string() } else { "".to_string() };
+            let unit = if row.len() > 3 {
+                row[3].to_string()
+            } else {
+                "".to_string()
+            };
             let min_stock = if row.len() > 4 {
                 row[4].as_f64().map(|v| v as i32)
             } else {
                 None
             };
-            let description = if row.len() > 5 { row[5].to_string() } else { "".to_string() };
+            let description = if row.len() > 5 {
+                row[5].to_string()
+            } else {
+                "".to_string()
+            };
 
             if name.is_empty() || sku.is_empty() {
                 result.failed_count += 1;
-                result.errors.push(format!("第{}行: 产品名称和SKU不能为空", row_idx + 1));
+                result
+                    .errors
+                    .push(format!("第{}行: 产品名称和SKU不能为空", row_idx + 1));
                 continue;
             }
 
@@ -193,7 +224,9 @@ async fn parse_excel_and_import(
 
             if existing.is_some() {
                 result.failed_count += 1;
-                result.errors.push(format!("第{}行: SKU {} 已存在", row_idx + 1, sku));
+                result
+                    .errors
+                    .push(format!("第{}行: SKU {} 已存在", row_idx + 1, sku));
                 continue;
             }
 
@@ -201,9 +234,17 @@ async fn parse_excel_and_import(
                 name: Set(name),
                 sku: Set(sku),
                 stock: Set(stock),
-                unit: Set(Some(if unit.is_empty() { "个".to_string() } else { unit })),
+                unit: Set(Some(if unit.is_empty() {
+                    "个".to_string()
+                } else {
+                    unit
+                })),
                 min_stock: Set(min_stock),
-                description: Set(if description.is_empty() { None } else { Some(description) }),
+                description: Set(if description.is_empty() {
+                    None
+                } else {
+                    Some(description)
+                }),
                 ..Default::default()
             };
 
@@ -211,7 +252,9 @@ async fn parse_excel_and_import(
                 Ok(_) => result.success_count += 1,
                 Err(e) => {
                     result.failed_count += 1;
-                    result.errors.push(format!("第{}行: 插入失败: {}", row_idx + 1, e));
+                    result
+                        .errors
+                        .push(format!("第{}行: 插入失败: {}", row_idx + 1, e));
                 }
             }
         }
@@ -234,9 +277,16 @@ pub async fn import_suppliers(
         errors: Vec::new(),
     };
 
-    while let Some(field) = multipart.next_field().await.map_err(|e| AppError::InternalError(e.to_string()))? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::InternalError(e.to_string()))?
+    {
         let file_name = field.file_name().unwrap_or_default().to_string();
-        let data = field.bytes().await.map_err(|e| AppError::InternalError(e.to_string()))?;
+        let data = field
+            .bytes()
+            .await
+            .map_err(|e| AppError::InternalError(e.to_string()))?;
 
         if file_name.is_empty() {
             continue;
@@ -246,7 +296,9 @@ pub async fn import_suppliers(
             match parse_supplier_csv(&state, &data, &mut result).await {
                 Ok(_) => {}
                 Err(e) => {
-                    result.errors.push(format!("文件 {} 解析失败: {}", file_name, e));
+                    result
+                        .errors
+                        .push(format!("文件 {} 解析失败: {}", file_name, e));
                 }
             }
         }
@@ -288,10 +340,18 @@ async fn parse_supplier_csv(
 
                 let sup = supplier::ActiveModel {
                     name: Set(name),
-                    contact_person: Set(if contact.is_empty() { None } else { Some(contact) }),
+                    contact_person: Set(if contact.is_empty() {
+                        None
+                    } else {
+                        Some(contact)
+                    }),
                     phone: Set(if phone.is_empty() { None } else { Some(phone) }),
                     email: Set(if email.is_empty() { None } else { Some(email) }),
-                    address: Set(if address.is_empty() { None } else { Some(address) }),
+                    address: Set(if address.is_empty() {
+                        None
+                    } else {
+                        Some(address)
+                    }),
                     ..Default::default()
                 };
 
@@ -313,9 +373,9 @@ async fn parse_supplier_csv(
     Ok(())
 }
 
-pub async fn get_import_template(
-) -> Result<(StatusCode, String), AppError> {
-    let template = "产品名称,SKU,初始库存,单位,最低库存,描述\n示例产品,SKU001,100,个,10,这是一个示例产品";
+pub async fn get_import_template() -> Result<(StatusCode, String), AppError> {
+    let template =
+        "产品名称,SKU,初始库存,单位,最低库存,描述\n示例产品,SKU001,100,个,10,这是一个示例产品";
 
     Ok((StatusCode::OK, template.to_string()))
 }

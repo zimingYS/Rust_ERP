@@ -1,14 +1,14 @@
 /*
     审计日志接口
 */
-use std::sync::Arc;
-use axum::extract::{Query, State};
-use axum::Json;
-use sea_orm::{EntityTrait, QueryOrder, QueryFilter, ColumnTrait};
-use serde::Deserialize;
 use crate::entities::audit_log;
 use crate::handlers::error::AppError;
 use crate::state::AppState;
+use axum::Json;
+use axum::extract::{Query, State};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use serde::Deserialize;
+use std::sync::Arc;
 
 #[derive(Deserialize)]
 pub struct AuditLogQueryParams {
@@ -107,8 +107,10 @@ pub async fn get_user_activity_summary(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let all_logs = audit_log::Entity::find().all(&state.db).await?;
 
-    let mut user_activity: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
-    let mut module_activity: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+    let mut user_activity: std::collections::HashMap<String, u64> =
+        std::collections::HashMap::new();
+    let mut module_activity: std::collections::HashMap<String, u64> =
+        std::collections::HashMap::new();
 
     for log in &all_logs {
         *user_activity.entry(log.username.clone()).or_insert(0) += 1;

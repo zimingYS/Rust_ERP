@@ -1,17 +1,17 @@
 /*
     财务管理接口
 */
-use std::sync::Arc;
-use axum::extract::{Path, Query, State, Extension};
-use axum::http::StatusCode;
-use axum::Json;
-use chrono::Local;
-use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait};
-use serde::{Deserialize, Serialize};
+use crate::auth::UserClaims;
 use crate::entities::financial_transaction;
 use crate::handlers::error::AppError;
 use crate::state::AppState;
-use crate::auth::UserClaims;
+use axum::Json;
+use axum::extract::{Extension, Path, Query, State};
+use axum::http::StatusCode;
+use chrono::Local;
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Deserialize)]
 pub struct TransactionQueryParams {
@@ -85,12 +85,14 @@ pub async fn get_financial_stats(
 ) -> Result<Json<FinancialStats>, AppError> {
     let all_transactions = financial_transaction::Entity::find().all(&state.db).await?;
 
-    let total_income: f64 = all_transactions.iter()
+    let total_income: f64 = all_transactions
+        .iter()
         .filter(|t| t.transaction_type == "收入")
         .map(|t| t.amount)
         .sum();
 
-    let total_expense: f64 = all_transactions.iter()
+    let total_expense: f64 = all_transactions
+        .iter()
         .filter(|t| t.transaction_type == "支出")
         .map(|t| t.amount)
         .sum();
@@ -100,12 +102,14 @@ pub async fn get_financial_stats(
     let now = Local::now();
     let current_month = now.format("%Y-%m").to_string();
 
-    let this_month_income: f64 = all_transactions.iter()
+    let this_month_income: f64 = all_transactions
+        .iter()
         .filter(|t| t.transaction_type == "收入" && t.transaction_date.starts_with(&current_month))
         .map(|t| t.amount)
         .sum();
 
-    let this_month_expense: f64 = all_transactions.iter()
+    let this_month_expense: f64 = all_transactions
+        .iter()
         .filter(|t| t.transaction_type == "支出" && t.transaction_date.starts_with(&current_month))
         .map(|t| t.amount)
         .sum();
@@ -134,21 +138,25 @@ pub async fn get_category_summary(
         .all(&state.db)
         .await?;
 
-    let mut category_map: std::collections::HashMap<String, (f64, u64)> = std::collections::HashMap::new();
+    let mut category_map: std::collections::HashMap<String, (f64, u64)> =
+        std::collections::HashMap::new();
 
     for transaction in &transactions {
-        let entry = category_map.entry(transaction.category.clone()).or_insert((0.0, 0));
+        let entry = category_map
+            .entry(transaction.category.clone())
+            .or_insert((0.0, 0));
         entry.0 += transaction.amount;
         entry.1 += 1;
     }
 
-    let summary: Vec<CategorySummary> = category_map.into_iter().map(|(category, (total, count))| {
-        CategorySummary {
+    let summary: Vec<CategorySummary> = category_map
+        .into_iter()
+        .map(|(category, (total, count))| CategorySummary {
             category,
             total_amount: total,
             count,
-        }
-    }).collect();
+        })
+        .collect();
 
     Ok(Json(summary))
 }
@@ -164,13 +172,16 @@ pub async fn create_transaction(
 
     let valid_types = vec!["收入", "支出"];
     if !valid_types.contains(&payload.transaction_type.as_str()) {
-        return Err(AppError::BadRequest(format!("无效的交易类型: {}", payload.transaction_type)));
+        return Err(AppError::BadRequest(format!(
+            "无效的交易类型: {}",
+            payload.transaction_type
+        )));
     }
 
     let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-    let transaction_date = payload.transaction_date.unwrap_or_else(|| {
-        Local::now().format("%Y-%m-%d").to_string()
-    });
+    let transaction_date = payload
+        .transaction_date
+        .unwrap_or_else(|| Local::now().format("%Y-%m-%d").to_string());
 
     let new_transaction = financial_transaction::ActiveModel {
         transaction_type: Set(payload.transaction_type),
@@ -189,7 +200,9 @@ pub async fn create_transaction(
 
     tracing::info!(
         "创建财务交易 - 类型: {}, 分类: {}, 金额: {}",
-        inserted.transaction_type, inserted.category, inserted.amount
+        inserted.transaction_type,
+        inserted.category,
+        inserted.amount
     );
 
     Ok((StatusCode::CREATED, Json(inserted)))

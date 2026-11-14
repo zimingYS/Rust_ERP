@@ -1,21 +1,21 @@
+use crate::auth;
+use crate::constants::ROLE_USER;
 use crate::entities::user;
+use crate::handlers::error::AppError;
 use crate::state::AppState;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use axum::Json;
 use axum::extract::State;
 use axum::response::IntoResponse;
-use axum::Json;
 use jsonwebtoken::signature::rand_core::OsRng;
 use password_hash::SaltString;
-use sea_orm::{ActiveModelTrait, EntityTrait, Set, QueryFilter, ColumnTrait};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
-use crate::auth;
-use crate::handlers::error::AppError;
-use crate::constants::ROLE_USER;
 
 #[derive(Deserialize)]
-pub struct LoginRequest{
+pub struct LoginRequest {
     pub username: String,
     pub password: String,
 }
@@ -28,7 +28,7 @@ pub struct RegisterRequest {
 
 pub async fn register(
     State(state): State<Arc<AppState>>,
-    Json(payload): Json<RegisterRequest>
+    Json(payload): Json<RegisterRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let exists = user::Entity::find()
         .filter(user::Column::Username.eq(&payload.username))
@@ -59,15 +59,12 @@ pub async fn register(
 
     tracing::info!("用户注册成功! ID: {}, 角色: 普通用户", res.id);
 
-    Ok((
-        axum::http::StatusCode::OK,
-        Json(json!({"msg": "注册成功"}))
-    ))
+    Ok((axum::http::StatusCode::OK, Json(json!({"msg": "注册成功"}))))
 }
 
 pub async fn login(
     State(state): State<Arc<AppState>>,
-    Json(payload): Json<LoginRequest>
+    Json(payload): Json<LoginRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let user = user::Entity::find()
         .filter(user::Column::Username.eq(&payload.username))
@@ -89,8 +86,5 @@ pub async fn login(
     let token = auth::create_token(user.id, user.username.clone(), user.role_id)
         .map_err(|e| AppError::InternalError(format!("令牌生成失败: {}", e)))?;
 
-    Ok((
-        axum::http::StatusCode::OK,
-        Json(json!({"token": token}))
-    ))
+    Ok((axum::http::StatusCode::OK, Json(json!({"token": token}))))
 }

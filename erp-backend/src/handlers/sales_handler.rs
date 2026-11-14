@@ -1,40 +1,39 @@
 /*
     销售管理接口
 */
-use std::sync::Arc;
-use axum::extract::{Path, Query, State, Extension};
-use axum::http::StatusCode;
-use axum::Json;
-use chrono::Local;
-use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait};
-use serde::{Deserialize, Serialize};
-use crate::entities::{sales_order, sales_order_item, financial_transaction, items, inventory_adjustment, customer};
-use crate::handlers::error::AppError;
-use crate::state::AppState;
 use crate::auth::UserClaims;
 use crate::constants::{
-    SALES_ORDER_STATUS_PENDING_CONFIRM,
-    SALES_ORDER_STATUS_CONFIRMED,
-    SALES_ORDER_STATUS_COMPLETED,
-    ORDER_STATUS_CANCELLED,
-    SALES_ORDER_PREFIX,
+    ORDER_STATUS_CANCELLED, SALES_ORDER_PREFIX, SALES_ORDER_STATUS_COMPLETED,
+    SALES_ORDER_STATUS_CONFIRMED, SALES_ORDER_STATUS_PENDING_CONFIRM,
 };
+use crate::entities::{
+    customer, financial_transaction, inventory_adjustment, items, sales_order, sales_order_item,
+};
+use crate::handlers::error::AppError;
 use crate::permissions::can_approve;
+use crate::state::AppState;
+use axum::Json;
+use axum::extract::{Extension, Path, Query, State};
+use axum::http::StatusCode;
+use chrono::Local;
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Deserialize)]
-pub struct CreateSalesOrderRequest{
+pub struct CreateSalesOrderRequest {
     pub customer: String,
     pub delivery_date: String,
-    pub items: Vec<SalesOrderItemRequest>
+    pub items: Vec<SalesOrderItemRequest>,
 }
 
 #[derive(Deserialize)]
-pub struct SalesOrderItemRequest{
+pub struct SalesOrderItemRequest {
     pub item_id: Option<i32>,
     pub item_name: String,
     pub quantity: i32,
     pub unit_price: f64,
-    pub remark: Option<String>
+    pub remark: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -98,13 +97,20 @@ pub async fn get_sales_order_stats(
     let all_orders = sales_order::Entity::find().all(&state.db).await?;
 
     let total_orders = all_orders.len() as u64;
-    let pending_confirm = all_orders.iter().filter(|o| o.status == SALES_ORDER_STATUS_PENDING_CONFIRM).count() as u64;
-    let confirmed = all_orders.iter().filter(|o| o.status == SALES_ORDER_STATUS_CONFIRMED).count() as u64;
+    let pending_confirm = all_orders
+        .iter()
+        .filter(|o| o.status == SALES_ORDER_STATUS_PENDING_CONFIRM)
+        .count() as u64;
+    let confirmed = all_orders
+        .iter()
+        .filter(|o| o.status == SALES_ORDER_STATUS_CONFIRMED)
+        .count() as u64;
     let total_amount: f64 = all_orders.iter().map(|o| o.total_amount).sum();
 
     let now = Local::now();
     let current_month = now.format("%Y-%m").to_string();
-    let this_month_amount: f64 = all_orders.iter()
+    let this_month_amount: f64 = all_orders
+        .iter()
         .filter(|o| o.order_date.starts_with(&current_month))
         .map(|o| o.total_amount)
         .sum();
@@ -146,17 +152,29 @@ pub async fn create_sales_order(
 
     for item in &payload.items {
         if item.quantity <= 0 {
-            return Err(AppError::BadRequest(format!("物品 {} 的数量必须大于0", item.item_name)));
+            return Err(AppError::BadRequest(format!(
+                "物品 {} 的数量必须大于0",
+                item.item_name
+            )));
         }
         if item.unit_price < 0.0 {
-            return Err(AppError::BadRequest(format!("物品 {} 的单价不能为负数", item.item_name)));
+            return Err(AppError::BadRequest(format!(
+                "物品 {} 的单价不能为负数",
+                item.item_name
+            )));
         }
     }
 
     let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-    let order_number = format!("{}{}", SALES_ORDER_PREFIX, Local::now().format("%Y%m%d%H%M%S"));
+    let order_number = format!(
+        "{}{}",
+        SALES_ORDER_PREFIX,
+        Local::now().format("%Y%m%d%H%M%S")
+    );
 
-    let total_amount: f64 = payload.items.iter()
+    let total_amount: f64 = payload
+        .items
+        .iter()
         .map(|item| item.quantity as f64 * item.unit_price)
         .sum();
 
@@ -203,8 +221,11 @@ pub async fn update_sales_order(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", id)))?;
 
-    if order.status == SALES_ORDER_STATUS_CONFIRMED || order.status == SALES_ORDER_STATUS_COMPLETED {
-        return Err(AppError::BadRequest("已确认或已完成的订单不能修改".to_string()));
+    if order.status == SALES_ORDER_STATUS_CONFIRMED || order.status == SALES_ORDER_STATUS_COMPLETED
+    {
+        return Err(AppError::BadRequest(
+            "已确认或已完成的订单不能修改".to_string(),
+        ));
     }
 
     if payload.items.is_empty() {
@@ -213,16 +234,24 @@ pub async fn update_sales_order(
 
     for item in &payload.items {
         if item.quantity <= 0 {
-            return Err(AppError::BadRequest(format!("物品 {} 的数量必须大于0", item.item_name)));
+            return Err(AppError::BadRequest(format!(
+                "物品 {} 的数量必须大于0",
+                item.item_name
+            )));
         }
         if item.unit_price < 0.0 {
-            return Err(AppError::BadRequest(format!("物品 {} 的单价不能为负数", item.item_name)));
+            return Err(AppError::BadRequest(format!(
+                "物品 {} 的单价不能为负数",
+                item.item_name
+            )));
         }
     }
 
     let mut order: sales_order::ActiveModel = order.into();
 
-    let total_amount: f64 = payload.items.iter()
+    let total_amount: f64 = payload
+        .items
+        .iter()
         .map(|item| item.quantity as f64 * item.unit_price)
         .sum();
 
@@ -266,8 +295,11 @@ pub async fn delete_sales_order(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", id)))?;
 
-    if order.status == SALES_ORDER_STATUS_CONFIRMED || order.status == SALES_ORDER_STATUS_COMPLETED {
-        return Err(AppError::BadRequest("已确认或已完成的订单不能删除".to_string()));
+    if order.status == SALES_ORDER_STATUS_CONFIRMED || order.status == SALES_ORDER_STATUS_COMPLETED
+    {
+        return Err(AppError::BadRequest(
+            "已确认或已完成的订单不能删除".to_string(),
+        ));
     }
 
     sales_order_item::Entity::delete_many()
@@ -302,7 +334,10 @@ pub async fn confirm_sales_order(
         .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", id)))?;
 
     if order.status != SALES_ORDER_STATUS_PENDING_CONFIRM {
-        return Err(AppError::BadRequest(format!("订单当前状态为 '{}', 无法确认", order.status)));
+        return Err(AppError::BadRequest(format!(
+            "订单当前状态为 '{}', 无法确认",
+            order.status
+        )));
     }
 
     let mut order: sales_order::ActiveModel = order.into();
@@ -329,7 +364,10 @@ pub async fn complete_sales_order(
         .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", id)))?;
 
     if order.status != SALES_ORDER_STATUS_CONFIRMED {
-        return Err(AppError::BadRequest(format!("订单当前状态为 '{}', 无法完成", order.status)));
+        return Err(AppError::BadRequest(format!(
+            "订单当前状态为 '{}', 无法完成",
+            order.status
+        )));
     }
 
     let order_items = sales_order_item::Entity::find()
@@ -375,7 +413,10 @@ pub async fn complete_sales_order(
 
             tracing::info!(
                 "销售出库 - 物料ID: {}, 数量: {}, 调整前: {}, 调整后: {}",
-                item_id, item.quantity, before_stock, new_stock
+                item_id,
+                item.quantity,
+                before_stock,
+                new_stock
             );
         }
     }
@@ -392,7 +433,10 @@ pub async fn complete_sales_order(
         transaction_type: Set("收入".to_string()),
         category: Set("销售收入".to_string()),
         amount: Set(updated_order.total_amount),
-        description: Set(Some(format!("销售订单: {} - 客户: {}", updated_order.order_number, updated_order.customer))),
+        description: Set(Some(format!(
+            "销售订单: {} - 客户: {}",
+            updated_order.order_number, updated_order.customer
+        ))),
         transaction_date: Set(updated_order.order_date.clone()),
         related_order_id: Set(Some(id)),
         related_order_type: Set(Some("销售订单".to_string())),
@@ -403,7 +447,12 @@ pub async fn complete_sales_order(
 
     transaction.insert(&state.db).await?;
 
-    tracing::info!("完成销售订单并生成财务记录: ID={}, 金额: {}, 操作人: {}", id, updated_order.total_amount, claims.username);
+    tracing::info!(
+        "完成销售订单并生成财务记录: ID={}, 金额: {}, 操作人: {}",
+        id,
+        updated_order.total_amount,
+        claims.username
+    );
     Ok(StatusCode::OK)
 }
 
@@ -421,8 +470,11 @@ pub async fn cancel_sales_order(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", id)))?;
 
-    if order.status == SALES_ORDER_STATUS_CONFIRMED || order.status == SALES_ORDER_STATUS_COMPLETED {
-        return Err(AppError::BadRequest("已确认或已完成的订单不能取消".to_string()));
+    if order.status == SALES_ORDER_STATUS_CONFIRMED || order.status == SALES_ORDER_STATUS_COMPLETED
+    {
+        return Err(AppError::BadRequest(
+            "已确认或已完成的订单不能取消".to_string(),
+        ));
     }
 
     let mut order: sales_order::ActiveModel = order.into();
@@ -448,10 +500,14 @@ pub async fn force_delete_sales_order(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("销售订单 {} 不存在", id)))?;
 
-    if order.status == SALES_ORDER_STATUS_CONFIRMED || order.status == SALES_ORDER_STATUS_COMPLETED {
+    if order.status == SALES_ORDER_STATUS_CONFIRMED || order.status == SALES_ORDER_STATUS_COMPLETED
+    {
         tracing::warn!(
             "管理员强制删除已完成的销售订单: ID={}, 订单号={}, 状态={}, 操作人={}",
-            id, order.order_number, order.status, claims.username
+            id,
+            order.order_number,
+            order.status,
+            claims.username
         );
     }
 
@@ -467,7 +523,10 @@ pub async fn force_delete_sales_order(
     if res.rows_affected > 0 {
         tracing::warn!(
             "管理员强制删除销售订单成功: ID={}, 订单号={}, 状态={}, 操作人={}",
-            id, order.order_number, order.status, claims.username
+            id,
+            order.order_number,
+            order.status,
+            claims.username
         );
         Ok(StatusCode::NO_CONTENT)
     } else {
@@ -492,12 +551,15 @@ pub async fn get_customers_for_sales(
         .all(&state.db)
         .await?;
 
-    let result = customers.iter().map(|c| CustomerSimpleInfo {
-        id: c.id,
-        name: c.name.clone(),
-        contact_person: c.contact_person.clone(),
-        phone: c.phone.clone(),
-    }).collect();
+    let result = customers
+        .iter()
+        .map(|c| CustomerSimpleInfo {
+            id: c.id,
+            name: c.name.clone(),
+            contact_person: c.contact_person.clone(),
+            phone: c.phone.clone(),
+        })
+        .collect();
 
     Ok(Json(result))
 }

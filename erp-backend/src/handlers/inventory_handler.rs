@@ -1,34 +1,23 @@
 /*
     库存管理接口
 */
-use std::sync::Arc;
-use axum::extract::{Path, Query, State, Extension};
-use axum::http::StatusCode;
-use axum::Json;
-use chrono::{Local, Utc};
-use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait};
-use serde::{Deserialize, Serialize};
-use crate::entities::{items, inventory_adjustment, notification};
-use crate::handlers::error::AppError;
-use crate::state::AppState;
 use crate::auth::UserClaims;
 use crate::constants::{
-    ADJUSTMENT_TYPE_INBOUND,
-    ADJUSTMENT_TYPE_OUTBOUND,
-    ADJUSTMENT_TYPE_COUNTING,
-    ADJUSTMENT_TYPE_LOSS,
-    ADJUSTMENT_TYPE_RETURN,
-    DEFAULT_LEAD_TIME_DAYS,
-    SERVICE_FACTOR_95,
-    INVENTORY_DAYS_BASE,
-    REORDER_DAYS_TARGET,
-    REORDER_MULTIPLIER,
-    PRIORITY_HIGH,
-    PRIORITY_MEDIUM,
-    PRIORITY_LOW,
-    NOTIFICATION_TYPE_INVENTORY_ALERT,
-    NOTIFICATION_TYPE_REORDER_SUGGESTION,
+    ADJUSTMENT_TYPE_COUNTING, ADJUSTMENT_TYPE_INBOUND, ADJUSTMENT_TYPE_LOSS,
+    ADJUSTMENT_TYPE_OUTBOUND, ADJUSTMENT_TYPE_RETURN, DEFAULT_LEAD_TIME_DAYS, INVENTORY_DAYS_BASE,
+    NOTIFICATION_TYPE_INVENTORY_ALERT, NOTIFICATION_TYPE_REORDER_SUGGESTION, PRIORITY_HIGH,
+    PRIORITY_LOW, PRIORITY_MEDIUM, REORDER_DAYS_TARGET, REORDER_MULTIPLIER, SERVICE_FACTOR_95,
 };
+use crate::entities::{inventory_adjustment, items, notification};
+use crate::handlers::error::AppError;
+use crate::state::AppState;
+use axum::Json;
+use axum::extract::{Extension, Path, Query, State};
+use axum::http::StatusCode;
+use chrono::{Local, Utc};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Deserialize)]
 pub struct InventoryQueryParams {
@@ -119,12 +108,13 @@ pub async fn get_inventory_list(
 
     let all_items = query.all(&state.db).await?;
 
-    let inventory_items: Vec<InventoryItem> = all_items.iter()
-        .map(build_inventory_item)
-        .collect();
+    let inventory_items: Vec<InventoryItem> = all_items.iter().map(build_inventory_item).collect();
 
     let filtered_items: Vec<InventoryItem> = if params.low_stock_only == Some(true) {
-        inventory_items.into_iter().filter(|item| item.is_low_stock || item.stock == 0).collect()
+        inventory_items
+            .into_iter()
+            .filter(|item| item.is_low_stock || item.stock == 0)
+            .collect()
     } else {
         inventory_items
     };
@@ -138,10 +128,13 @@ pub async fn get_inventory_stats(
     let all_items = items::Entity::find().all(&state.db).await?;
 
     let total_items = all_items.len() as u64;
-    let low_stock_items = all_items.iter().filter(|item| {
-        let min_stock = item.min_stock.unwrap_or(0);
-        item.stock <= min_stock && item.stock > 0
-    }).count() as u64;
+    let low_stock_items = all_items
+        .iter()
+        .filter(|item| {
+            let min_stock = item.min_stock.unwrap_or(0);
+            item.stock <= min_stock && item.stock > 0
+        })
+        .count() as u64;
 
     let out_of_stock_items = all_items.iter().filter(|item| item.stock == 0).count() as u64;
     let total_stock_value = all_items.iter().map(|item| item.stock).sum::<i32>() as u64;
@@ -189,12 +182,17 @@ pub async fn adjust_stock(
         ADJUSTMENT_TYPE_RETURN,
     ];
     if !valid_types.contains(&payload.adjustment_type.as_str()) {
-        return Err(AppError::BadRequest(format!("无效的调整类型: {}", payload.adjustment_type)));
+        return Err(AppError::BadRequest(format!(
+            "无效的调整类型: {}",
+            payload.adjustment_type
+        )));
     }
 
     let before_stock = item.stock;
     let new_stock = match payload.adjustment_type.as_str() {
-        ADJUSTMENT_TYPE_INBOUND | ADJUSTMENT_TYPE_COUNTING | ADJUSTMENT_TYPE_RETURN => before_stock + payload.quantity,
+        ADJUSTMENT_TYPE_INBOUND | ADJUSTMENT_TYPE_COUNTING | ADJUSTMENT_TYPE_RETURN => {
+            before_stock + payload.quantity
+        }
         ADJUSTMENT_TYPE_OUTBOUND | ADJUSTMENT_TYPE_LOSS => {
             if before_stock < payload.quantity {
                 return Err(AppError::BadRequest(format!(
@@ -203,7 +201,7 @@ pub async fn adjust_stock(
                 )));
             }
             before_stock - payload.quantity
-        },
+        }
         _ => return Err(AppError::BadRequest("无效的调整类型".to_string())),
     };
 
@@ -232,7 +230,11 @@ pub async fn adjust_stock(
 
     tracing::info!(
         "库存调整 - 物料ID: {}, 类型: {}, 数量: {}, 调整前: {}, 调整后: {}",
-        id, adjustment_type, quantity, before_stock, new_stock
+        id,
+        adjustment_type,
+        quantity,
+        before_stock,
+        new_stock
     );
 
     Ok(Json(build_inventory_item(&updated_item)))
@@ -265,7 +267,8 @@ pub async fn get_low_stock_alerts(
 ) -> Result<Json<Vec<LowStockAlert>>, AppError> {
     let all_items = items::Entity::find().all(&state.db).await?;
 
-    let alerts: Vec<LowStockAlert> = all_items.iter()
+    let alerts: Vec<LowStockAlert> = all_items
+        .iter()
         .filter(|item| {
             let min_stock = item.min_stock.unwrap_or(0);
             item.stock <= min_stock
@@ -283,7 +286,11 @@ pub async fn get_low_stock_alerts(
                 current_stock: item.stock,
                 min_stock,
                 shortage,
-                suggested_order_qty: if suggested_order_qty > 0 { suggested_order_qty } else { min_stock },
+                suggested_order_qty: if suggested_order_qty > 0 {
+                    suggested_order_qty
+                } else {
+                    min_stock
+                },
             }
         })
         .collect();
@@ -296,7 +303,8 @@ pub async fn get_reorder_suggestions(
 ) -> Result<Json<Vec<ReorderSuggestion>>, AppError> {
     let all_items = items::Entity::find().all(&state.db).await?;
 
-    let suggestions: Vec<ReorderSuggestion> = all_items.iter()
+    let suggestions: Vec<ReorderSuggestion> = all_items
+        .iter()
         .filter(|item| {
             let min_stock = item.min_stock.unwrap_or(0);
             item.stock <= min_stock * 2 // 库存低于2倍最低库存时给出建议
@@ -339,7 +347,11 @@ pub async fn get_reorder_suggestions(
                 lead_time_days,
                 safety_stock,
                 reorder_point,
-                suggested_qty: if suggested_qty > 0 { suggested_qty } else { min_stock * 2 },
+                suggested_qty: if suggested_qty > 0 {
+                    suggested_qty
+                } else {
+                    min_stock * 2
+                },
                 priority,
             }
         })
@@ -391,11 +403,15 @@ async fn create_notification_for_low_stock(
     content: &str,
     _min_stock: i32,
 ) -> Result<(), AppError> {
-    use crate::entities::user;
     use crate::constants::{ROLE_ADMIN, ROLE_SUPERVISOR};
+    use crate::entities::user;
 
     let users = user::Entity::find()
-        .filter(user::Column::RoleId.eq(ROLE_ADMIN).or(user::Column::RoleId.eq(ROLE_SUPERVISOR)))
+        .filter(
+            user::Column::RoleId
+                .eq(ROLE_ADMIN)
+                .or(user::Column::RoleId.eq(ROLE_SUPERVISOR)),
+        )
         .all(&state.db)
         .await?;
 
@@ -407,7 +423,11 @@ async fn create_notification_for_low_stock(
             content: Set(content.to_string()),
             notification_type: Set(NOTIFICATION_TYPE_INVENTORY_ALERT.to_string()),
             is_read: Set(false),
-            priority: Set(if item.stock == 0 { Some(PRIORITY_HIGH.to_string()) } else { Some(PRIORITY_MEDIUM.to_string()) }),
+            priority: Set(if item.stock == 0 {
+                Some(PRIORITY_HIGH.to_string())
+            } else {
+                Some(PRIORITY_MEDIUM.to_string())
+            }),
             related_id: Set(Some(item.id)),
             related_type: Set(Some("inventory".to_string())),
             created_at: Set(now),
@@ -441,7 +461,11 @@ pub async fn create_reorder_notifications(
             let safety_stock = min_stock;
             let reorder_point = (avg_daily_usage * lead_time_days as f64) as i32 + safety_stock;
             let suggested_qty = ((avg_daily_usage * REORDER_DAYS_TARGET) as i32) - item.stock;
-            let final_suggested_qty = if suggested_qty > 0 { suggested_qty } else { min_stock * REORDER_MULTIPLIER };
+            let final_suggested_qty = if suggested_qty > 0 {
+                suggested_qty
+            } else {
+                min_stock * REORDER_MULTIPLIER
+            };
 
             let priority = if item.stock == 0 {
                 PRIORITY_HIGH
@@ -473,11 +497,15 @@ async fn create_notification_for_reorder(
     content: &str,
     priority: &str,
 ) -> Result<(), AppError> {
-    use crate::entities::user;
     use crate::constants::{ROLE_ADMIN, ROLE_SUPERVISOR};
+    use crate::entities::user;
 
     let users = user::Entity::find()
-        .filter(user::Column::RoleId.eq(ROLE_ADMIN).or(user::Column::RoleId.eq(ROLE_SUPERVISOR)))
+        .filter(
+            user::Column::RoleId
+                .eq(ROLE_ADMIN)
+                .or(user::Column::RoleId.eq(ROLE_SUPERVISOR)),
+        )
         .all(&state.db)
         .await?;
 

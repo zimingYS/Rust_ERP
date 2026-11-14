@@ -1,18 +1,20 @@
 /*
     消息通知接口
 */
-use std::sync::Arc;
-use axum::extract::{Path, Query, State, Extension};
-use axum::http::StatusCode;
-use axum::Json;
-use chrono::Utc;
-use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait, PaginatorTrait};
-use sea_orm::sea_query::Expr;
-use serde::{Deserialize, Serialize};
+use crate::auth::UserClaims;
 use crate::entities::notification;
 use crate::handlers::error::AppError;
 use crate::state::AppState;
-use crate::auth::UserClaims;
+use axum::Json;
+use axum::extract::{Extension, Path, Query, State};
+use axum::http::StatusCode;
+use chrono::Utc;
+use sea_orm::sea_query::Expr;
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, Set,
+};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Deserialize)]
 pub struct NotificationQueryParams {
@@ -44,8 +46,8 @@ pub async fn get_user_notifications(
     Extension(claims): Extension<UserClaims>,
     Query(params): Query<NotificationQueryParams>,
 ) -> Result<Json<Vec<notification::Model>>, AppError> {
-    let mut query = notification::Entity::find()
-        .filter(notification::Column::UserId.eq(claims.user_id));
+    let mut query =
+        notification::Entity::find().filter(notification::Column::UserId.eq(claims.user_id));
 
     if let Some(notification_type) = &params.notification_type {
         query = query.filter(notification::Column::NotificationType.eq(notification_type));
@@ -78,7 +80,8 @@ pub async fn get_notification_stats(
 
     let total_count = all_notifications.len() as u64;
     let unread_count = all_notifications.iter().filter(|n| !n.is_read).count() as u64;
-    let high_priority_count = all_notifications.iter()
+    let high_priority_count = all_notifications
+        .iter()
         .filter(|n| n.priority.as_deref() == Some("高"))
         .count() as u64;
 
@@ -181,7 +184,11 @@ pub async fn create_notification(
 
     let inserted_notification = new_notification.insert(&state.db).await?;
 
-    tracing::info!("创建消息通知: 用户ID={}, 类型={}", payload.user_id, inserted_notification.notification_type);
+    tracing::info!(
+        "创建消息通知: 用户ID={}, 类型={}",
+        payload.user_id,
+        inserted_notification.notification_type
+    );
     Ok((StatusCode::CREATED, Json(inserted_notification)))
 }
 

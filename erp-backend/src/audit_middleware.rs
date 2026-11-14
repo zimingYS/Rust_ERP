@@ -1,4 +1,6 @@
-use std::sync::Arc;
+use crate::auth::UserClaims;
+use crate::entities::audit_log;
+use crate::state::AppState;
 use axum::{
     extract::{Request, State},
     middleware::Next,
@@ -6,9 +8,7 @@ use axum::{
 };
 use chrono::Local;
 use sea_orm::{ActiveModelTrait, Set};
-use crate::entities::audit_log;
-use crate::state::AppState;
-use crate::auth::UserClaims;
+use std::sync::Arc;
 
 pub async fn audit_logger_middleware(
     State(state): State<Arc<AppState>>,
@@ -19,35 +19,37 @@ pub async fn audit_logger_middleware(
     let path = req.uri().path().to_string();
 
     let headers = req.headers().clone();
-    let ip_address = headers.get("x-forwarded-for")
+    let ip_address = headers
+        .get("x-forwarded-for")
         .or_else(|| headers.get("x-real-ip"))
         .and_then(|h| h.to_str().ok())
         .map(|s| s.to_string());
 
-    let user_agent = headers.get("user-agent")
+    let user_agent = headers
+        .get("user-agent")
         .and_then(|h| h.to_str().ok())
         .map(|s| s.to_string());
 
-    let user_info = headers.get("authorization")
+    let user_info = headers
+        .get("authorization")
         .and_then(|h| h.to_str().ok())
         .and_then(|h| h.strip_prefix("Bearer "))
         .and_then(|token| {
-            use jsonwebtoken::{decode, DecodingKey, Validation};
+            use jsonwebtoken::{DecodingKey, Validation, decode};
             decode::<UserClaims>(
                 token,
                 &DecodingKey::from_secret(crate::auth::JWT_SECRET.as_ref()),
                 &Validation::default(),
-            ).ok().map(|decoded| (decoded.claims.user_id, decoded.claims.username))
+            )
+            .ok()
+            .map(|decoded| (decoded.claims.user_id, decoded.claims.username))
         });
 
     let response = next.run(req).await;
 
     let status = response.status().as_u16() as i32;
 
-    if path.starts_with("/api/")
-        && !path.contains("/health")
-        && method != "GET"
-    {
+    if path.starts_with("/api/") && !path.contains("/health") && method != "GET" {
         let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
         let (user_id, username) = user_info.unwrap_or((0, "anonymous".to_string()));
@@ -115,7 +117,7 @@ fn determine_action(method: &str, path: &str) -> String {
             } else {
                 "新建记录".to_string()
             }
-        },
+        }
         "PUT" => "更新记录".to_string(),
         "DELETE" => "删除记录".to_string(),
         _ => "未知操作".to_string(),

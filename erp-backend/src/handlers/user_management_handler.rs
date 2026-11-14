@@ -1,15 +1,15 @@
 /*
     用户管理接口
 */
-use std::sync::Arc;
-use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
-use axum::Json;
-use sea_orm::{ActiveModelTrait, EntityTrait, QueryFilter, ColumnTrait, Set, QueryOrder};
-use serde::{Deserialize, Serialize};
-use crate::entities::{user, role};
+use crate::entities::{role, user};
 use crate::handlers::error::AppError;
 use crate::state::AppState;
+use axum::Json;
+use axum::extract::{Path, Query, State};
+use axum::http::StatusCode;
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Deserialize)]
 pub struct UserQueryParams {
@@ -57,10 +57,7 @@ pub async fn get_users(
         query = query.filter(user::Column::RoleId.eq(role_id));
     }
 
-    let users = query
-        .order_by_asc(user::Column::Id)
-        .all(&state.db)
-        .await?;
+    let users = query.order_by_asc(user::Column::Id).all(&state.db).await?;
 
     let mut user_responses = Vec::new();
     for user_model in users {
@@ -68,7 +65,9 @@ pub async fn get_users(
             .one(&state.db)
             .await?;
 
-        let role_name = role_entity.map(|r| r.name).unwrap_or_else(|| "未知".to_string());
+        let role_name = role_entity
+            .map(|r| r.name)
+            .unwrap_or_else(|| "未知".to_string());
 
         user_responses.push(UserResponse {
             id: user_model.id,
@@ -94,7 +93,9 @@ pub async fn get_user_by_id(
         .one(&state.db)
         .await?;
 
-    let role_name = role_entity.map(|r| r.name).unwrap_or_else(|| "未知".to_string());
+    let role_name = role_entity
+        .map(|r| r.name)
+        .unwrap_or_else(|| "未知".to_string());
 
     Ok(Json(UserResponse {
         id: user_model.id,
@@ -129,8 +130,8 @@ pub async fn create_user(
 
     // 密码加密
     use argon2::{
-        password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
         Argon2,
+        password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
     };
 
     let salt = SaltString::generate(&mut OsRng);
@@ -153,12 +154,15 @@ pub async fn create_user(
 
     tracing::info!("创建用户成功: {}", payload.username);
 
-    Ok((StatusCode::CREATED, Json(UserResponse {
-        id: inserted.id,
-        username: inserted.username,
-        role_id: inserted.role_id,
-        role_name,
-    })))
+    Ok((
+        StatusCode::CREATED,
+        Json(UserResponse {
+            id: inserted.id,
+            username: inserted.username,
+            role_id: inserted.role_id,
+            role_name,
+        }),
+    ))
 }
 
 pub async fn update_user(
@@ -175,9 +179,7 @@ pub async fn update_user(
 
     if let Some(role_id) = payload.role_id {
         // 验证角色是否存在
-        let role_exists = role::Entity::find_by_id(role_id)
-            .one(&state.db)
-            .await?;
+        let role_exists = role::Entity::find_by_id(role_id).one(&state.db).await?;
 
         if role_exists.is_none() {
             return Err(AppError::BadRequest("指定的角色不存在".to_string()));
@@ -192,7 +194,9 @@ pub async fn update_user(
         .one(&state.db)
         .await?;
 
-    let role_name = role_entity.map(|r| r.name).unwrap_or_else(|| "未知".to_string());
+    let role_name = role_entity
+        .map(|r| r.name)
+        .unwrap_or_else(|| "未知".to_string());
 
     tracing::info!("更新用户信息: ID={}", id);
 
@@ -218,9 +222,7 @@ pub async fn delete_user(
         return Err(AppError::BadRequest("不能删除超级管理员账户".to_string()));
     }
 
-    user::Entity::delete_by_id(id)
-        .exec(&state.db)
-        .await?;
+    user::Entity::delete_by_id(id).exec(&state.db).await?;
 
     tracing::info!("删除用户: {}", user_model.username);
 
@@ -238,23 +240,20 @@ pub async fn change_password(
         .ok_or_else(|| AppError::NotFound(format!("用户 {} 不存在", id)))?;
 
     // 验证旧密码
-    use argon2::password_hash::{PasswordHash, PasswordVerifier};
     use argon2::Argon2;
+    use argon2::password_hash::{PasswordHash, PasswordVerifier};
 
     let parsed_hash = PasswordHash::new(&user_model.password_hash)
         .map_err(|_| AppError::InternalError("密码格式错误".to_string()))?;
 
-    let result = Argon2::default().verify_password(
-        payload.old_password.as_bytes(),
-        &parsed_hash
-    );
+    let result = Argon2::default().verify_password(payload.old_password.as_bytes(), &parsed_hash);
 
     if result.is_err() {
         return Err(AppError::BadRequest("旧密码不正确".to_string()));
     }
 
     // 生成新密码哈希
-    use argon2::password_hash::{rand_core::OsRng, SaltString, PasswordHasher};
+    use argon2::password_hash::{PasswordHasher, SaltString, rand_core::OsRng};
 
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
@@ -282,8 +281,8 @@ pub async fn reset_password(
         .ok_or_else(|| AppError::NotFound(format!("用户 {} 不存在", id)))?;
 
     // 重置为默认密码 123456
-    use argon2::password_hash::{rand_core::OsRng, SaltString, PasswordHasher};
     use argon2::Argon2;
+    use argon2::password_hash::{PasswordHasher, SaltString, rand_core::OsRng};
 
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();

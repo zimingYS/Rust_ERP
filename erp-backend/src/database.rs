@@ -1,8 +1,10 @@
-use sea_orm::{Database, ConnectionTrait, EntityTrait, PaginatorTrait, ActiveModelTrait, DatabaseConnection};
-use tracing;
-use entities::role::{Entity as RoleEntity, ActiveModel as RoleActiveModel};
 use crate::constants::{ROLE_ADMIN, ROLE_SUPERVISOR, ROLE_USER};
 use crate::entities;
+use entities::role::{ActiveModel as RoleActiveModel, Entity as RoleEntity};
+use sea_orm::{
+    ActiveModelTrait, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
+};
+use tracing;
 
 pub async fn connect_db() -> DatabaseConnection {
     dotenvy::dotenv().ok();
@@ -32,65 +34,155 @@ pub async fn init_tables(db: &DatabaseConnection) {
     let builder = db.get_database_backend();
     let schema = Schema::new(builder);
 
-    let _ = db.execute(builder.build(
-        schema.create_table_from_entity(entities::role::Entity).if_not_exists()
-    )).await;
+    let _ = db
+        .execute(
+            builder.build(
+                schema
+                    .create_table_from_entity(entities::role::Entity)
+                    .if_not_exists(),
+            ),
+        )
+        .await;
 
-    let _ = db.execute(builder.build(
-        schema.create_table_from_entity(entities::user::Entity).if_not_exists()
-    )).await;
+    let _ = db
+        .execute(
+            builder.build(
+                schema
+                    .create_table_from_entity(entities::user::Entity)
+                    .if_not_exists(),
+            ),
+        )
+        .await;
 
-    let _ = db.execute(builder.build(
-        schema.create_table_from_entity(entities::items::Entity).if_not_exists()
-    )).await;
+    let _ = db
+        .execute(
+            builder.build(
+                schema
+                    .create_table_from_entity(entities::items::Entity)
+                    .if_not_exists(),
+            ),
+        )
+        .await;
 
-    let _ = db.execute(builder.build(
-        schema.create_table_from_entity(entities::purchase_order::Entity).if_not_exists()
-    )).await;
+    let _ = db
+        .execute(
+            builder.build(
+                schema
+                    .create_table_from_entity(entities::purchase_order::Entity)
+                    .if_not_exists(),
+            ),
+        )
+        .await;
 
-    let _ = db.execute(builder.build(
-        schema.create_table_from_entity(entities::purchase_order_item::Entity).if_not_exists()
-    )).await;
+    let _ = db
+        .execute(
+            builder.build(
+                schema
+                    .create_table_from_entity(entities::purchase_order_item::Entity)
+                    .if_not_exists(),
+            ),
+        )
+        .await;
 
-    let _ = db.execute(builder.build(
-        schema.create_table_from_entity(entities::sales_order::Entity).if_not_exists()
-    )).await;
+    let _ = db
+        .execute(
+            builder.build(
+                schema
+                    .create_table_from_entity(entities::sales_order::Entity)
+                    .if_not_exists(),
+            ),
+        )
+        .await;
 
-    let _ = db.execute(builder.build(
-        schema.create_table_from_entity(entities::sales_order_item::Entity).if_not_exists()
-    )).await;
+    let _ = db
+        .execute(
+            builder.build(
+                schema
+                    .create_table_from_entity(entities::sales_order_item::Entity)
+                    .if_not_exists(),
+            ),
+        )
+        .await;
 
-    let _ = db.execute(builder.build(
-        schema.create_table_from_entity(entities::inventory_adjustment::Entity).if_not_exists()
-    )).await;
+    let _ = db
+        .execute(
+            builder.build(
+                schema
+                    .create_table_from_entity(entities::inventory_adjustment::Entity)
+                    .if_not_exists(),
+            ),
+        )
+        .await;
 
-    let _ = db.execute(builder.build(
-        schema.create_table_from_entity(entities::financial_transaction::Entity).if_not_exists()
-    )).await;
+    let _ = db
+        .execute(
+            builder.build(
+                schema
+                    .create_table_from_entity(entities::financial_transaction::Entity)
+                    .if_not_exists(),
+            ),
+        )
+        .await;
 
-    let _ = db.execute(builder.build(
-        schema.create_table_from_entity(entities::audit_log::Entity).if_not_exists()
-    )).await;
+    let _ = db
+        .execute(
+            builder.build(
+                schema
+                    .create_table_from_entity(entities::audit_log::Entity)
+                    .if_not_exists(),
+            ),
+        )
+        .await;
 
-    let _ = db.execute(builder.build(
-        schema.create_table_from_entity(entities::supplier::Entity).if_not_exists()
-    )).await;
+    let _ = db
+        .execute(
+            builder.build(
+                schema
+                    .create_table_from_entity(entities::supplier::Entity)
+                    .if_not_exists(),
+            ),
+        )
+        .await;
 
-    let _ = db.execute(builder.build(
-        schema.create_table_from_entity(entities::customer::Entity).if_not_exists()
-    )).await;
+    let _ = db
+        .execute(
+            builder.build(
+                schema
+                    .create_table_from_entity(entities::customer::Entity)
+                    .if_not_exists(),
+            ),
+        )
+        .await;
 
-    let _ = db.execute(builder.build(
-        schema.create_table_from_entity(entities::notification::Entity).if_not_exists()
-    )).await;
+    let _ = db
+        .execute(
+            builder.build(
+                schema
+                    .create_table_from_entity(entities::notification::Entity)
+                    .if_not_exists(),
+            ),
+        )
+        .await;
 
-    let _ = db.execute(builder.build(
-        schema.create_table_from_entity(entities::workflow_instance::Entity).if_not_exists()
-    )).await;
+    let _ = db
+        .execute(
+            builder.build(
+                schema
+                    .create_table_from_entity(entities::workflow_instance::Entity)
+                    .if_not_exists(),
+            ),
+        )
+        .await;
 
-    let _ = db.execute(builder.build(
-        schema.create_table_from_entity(entities::workflow_step::Entity).if_not_exists()
-    )).await;
+    let _ = db
+        .execute(
+            builder.build(
+                schema
+                    .create_table_from_entity(entities::workflow_step::Entity)
+                    .if_not_exists(),
+            ),
+        )
+        .await;
 
     tracing::info!("数据库表创建完成!");
 }

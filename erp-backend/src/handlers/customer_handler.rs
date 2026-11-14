@@ -1,18 +1,18 @@
 /*
     客户管理接口
 */
-use std::sync::Arc;
-use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
-use axum::Json;
-use chrono::Utc;
-use rust_decimal::Decimal;
-use sea_orm::{ActiveModelTrait, EntityTrait, QueryOrder, Set, QueryFilter, ColumnTrait};
-use serde::{Deserialize, Serialize};
 use crate::constants::DEFAULT_CUSTOMER_RATING;
 use crate::entities::customer;
 use crate::handlers::error::AppError;
 use crate::state::AppState;
+use axum::Json;
+use axum::extract::{Path, Query, State};
+use axum::http::StatusCode;
+use chrono::Utc;
+use rust_decimal::Decimal;
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Deserialize)]
 pub struct CreateCustomerRequest {
@@ -68,9 +68,10 @@ pub async fn get_customers(
 
     if let Some(keyword) = &params.keyword {
         query = query.filter(
-            customer::Column::Name.contains(keyword)
+            customer::Column::Name
+                .contains(keyword)
                 .or(customer::Column::ContactPerson.contains(keyword))
-                .or(customer::Column::Phone.contains(keyword))
+                .or(customer::Column::Phone.contains(keyword)),
         );
     }
 
@@ -99,7 +100,8 @@ pub async fn get_customer_stats(
     let active_customers = all_customers.iter().filter(|c| c.status == "启用").count() as u64;
     let inactive_customers = all_customers.iter().filter(|c| c.status == "停用").count() as u64;
 
-    let ratings: Vec<f64> = all_customers.iter()
+    let ratings: Vec<f64> = all_customers
+        .iter()
         .filter_map(|c| c.rating.map(|r| r as f64))
         .collect();
 
@@ -206,9 +208,7 @@ pub async fn delete_customer(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("客户 {} 不存在", id)))?;
 
-    let res = customer::Entity::delete_by_id(id)
-        .exec(&state.db)
-        .await?;
+    let res = customer::Entity::delete_by_id(id).exec(&state.db).await?;
 
     if res.rows_affected > 0 {
         tracing::info!("删除客户成功: ID={}, 名称={}", id, customer_model.name);

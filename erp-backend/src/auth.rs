@@ -1,7 +1,7 @@
-use jsonwebtoken::{encode, EncodingKey, Header};
+use crate::constants::TOKEN_EXPIRY_SECONDS;
+use jsonwebtoken::{EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
-use crate::constants::TOKEN_EXPIRY_SECONDS;
 
 pub(crate) const JWT_SECRET: &str = "your-secret-key";
 
@@ -13,11 +13,16 @@ pub struct UserClaims {
     pub exp: usize,
 }
 
-pub fn create_token(user_id: i32, username: String, role_id: i32) -> Result<String, jsonwebtoken::errors::Error> {
+pub fn create_token(
+    user_id: i32,
+    username: String,
+    role_id: i32,
+) -> Result<String, jsonwebtoken::errors::Error> {
     let expiration = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
-        .as_secs() as usize + TOKEN_EXPIRY_SECONDS;
+        .as_secs() as usize
+        + TOKEN_EXPIRY_SECONDS;
 
     let claims = UserClaims {
         user_id,
