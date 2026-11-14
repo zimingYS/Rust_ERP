@@ -25,10 +25,13 @@ Closes #
 - [ ] `cargo check --workspace --all-targets` 通过
 - [ ] `cargo test --workspace` 通过
 - [ ] `cd erp-frontend && npm ci && npm run build` 通过
+- [ ] 命名与格式符合 `docs/CODE_STYLE.md`，未引入新的 clippy 告警
+- [ ] 接口 / 表结构变更已同步 `docs/api.md` / `docs/database.md`，并在 `docs/README.md` 登记新增文档
+- [ ] 容器相关改动已本地验证 `docker compose config`
 - [ ] 未提交 `.env`、口令、令牌、私钥、日志或数据库转储
 - [ ] 新增环境变量已写入 `.env.example` 占位值
-- [ ] 前端依赖变更已同步提交 `package-lock.json`
-- [ ] `README.md` / `CHANGELOG.md` 已按需更新
+- [ ] 前端依赖变更已同步提交 `package-lock.json`，后端依赖变更已提交 `Cargo.lock`
+- [ ] `README.md` / `docs/CHANGELOG.md` 已按需更新
 - [ ] 我有权按 PolyForm Noncommercial 1.0.0 授权所提交的内容
 
 ---

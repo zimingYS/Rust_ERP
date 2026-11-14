@@ -1,0 +1,113 @@
+name: Security
+
+# 策略：存量风险可见化，阻断「新增」的真实凭据与高危依赖。
+# 当前基线有 npm 10 项 / Cargo 20 条存量告警，直接设硬门禁会让所有 PR 长期红灯，
+# 因此 rust-audit / npm-audit 采用报告模式，dependency-review 只在 PR 上阻断新增 high+。
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 2 * * 1" # 每周一 10:17（UTC+8）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks 需要完整历史
+
+      # 允许列表见 .gitleaks.toml：排除文档中的占位口令与示例串
+      - name: Gitleaks (history + working tree)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+          GITLEAKS_ENABLE_SUMMARY: "true"
+
+      # 不依赖第三方服务的兜底：被跟踪文件里不允许出现敏感路径
+      - name: Baseline tracked-file check
+        run: |
+          if git ls-files | grep -Ei '(^|/)\.env$|\.pem$|\.key$|\.p12$|(^|/)logs/|\.log$|\.dump$|\.sqlite$'; then
+            echo "::error::发现被跟踪的密钥 / 日志 / 数据库转储文件"; exit 1
+          fi
+          echo "OK: 无被跟踪的敏感文件"
+
+  rust-audit:
+    name: rust-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Audit Cargo.lock (report only)
+        run: |
+          cargo audit --json > cargo-audit.json || true
+          node -e 'const fs=require("fs");const out=process.env.GITHUB_STEP_SUMMARY;try{const d=JSON.parse(fs.readFileSync("cargo-audit.json","utf8"));const l=(d.vulnerabilities&&d.vulnerabilities.list)||[];let s="## Cargo 依赖审计\n\n发现 "+l.length+" 条 RUSTSEC 告警（报告模式，不阻断合并）。详见 docs/SECURITY_AUDIT.md。\n\n";l.slice(0,25).forEach(v=>{s+="- "+v.advisory.id+" · "+v.package.name+" "+v.package.version+"\n"});fs.appendFileSync(out,s)}catch(e){fs.appendFileSync(out,"## Cargo 依赖审计\n\n未产出有效 JSON："+e.message+"\n")}'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cargo-audit-report
+          path: cargo-audit.json
+          if-no-files-found: warn
+
+  npm-audit:
+    name: npm-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: erp-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: erp-frontend
+        run: npm ci
+
+      - name: Audit npm dependencies (report only)
+        working-directory: erp-frontend
+        run: |
+          npm audit --json > npm-audit.json || true
+          node -e 'const fs=require("fs");const out=process.env.GITHUB_STEP_SUMMARY;try{const d=JSON.parse(fs.readFileSync("npm-audit.json","utf8"));const m=(d.metadata&&d.metadata.vulnerabilities)||{};const items=Object.entries(d.vulnerabilities||{});let s="## npm 依赖审计\n\ncritical "+m.critical+" / high "+m.high+" / moderate "+m.moderate+" / low "+m.low+"（报告模式，不阻断合并）。详见 docs/SECURITY_AUDIT.md。\n\n";items.slice(0,25).forEach(([k,v])=>{s+="- "+k+" · "+v.severity+(v.fixAvailable?" · 有可用修复":"")+"\n"});fs.appendFileSync(out,s)}catch(e){fs.appendFileSync(out,"## npm 依赖审计\n\n未产出有效 JSON："+e.message+"\n")}'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: erp-frontend/npm-audit.json
+          if-no-files-found: warn
+
+  dependency-review:
+    name: dependency-review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # 只审查本次 PR 引入 / 变更的依赖，存量告警不重复计入。
+      # 不写 PR 评论，避免 fork PR 因只读 token 失败；结果留在 job summary。
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: never

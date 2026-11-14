@@ -51,4 +51,6 @@ ALTER USER postgres WITH PASSWORD '新的强口令';
 
 ## 依赖安全
 
-Dependabot 每周检查 Cargo、npm 与 GitHub Actions 依赖；带有 `dependencies` 标签的 PR 会经过常规 CI 与保护规则审查。
+Dependabot 按生态检查 Cargo、npm、GitHub Actions 与 Docker 依赖，minor / patch 分组提交；带有 `dependencies` 标签的 PR 会经过常规 CI 与保护规则审查。
+
+CI 中的 `security.yml` 每周与每次 PR 执行密钥扫描、`cargo audit`、`npm audit` 与依赖差异审查。存量告警与修复优先级见 [SECURITY_AUDIT.md](SECURITY_AUDIT.md)。

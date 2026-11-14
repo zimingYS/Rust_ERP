@@ -1,0 +1,44 @@
+title: "[求助] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        用于**安装、构建、启动、部署与使用**类咨询。可复现的功能缺陷请改用 Issue 的「🐛 缺陷报告」模板。
+        提问前建议先看 [文档索引](https://github.com/zimingYS/Rust_ERP/blob/main/docs/README.md) 与 [部署文档](https://github.com/zimingYS/Rust_ERP/blob/main/docs/deployment.md)。
+        **请勿粘贴任何真实口令、令牌或含个人信息的日志。**
+  - type: textarea
+    id: question
+    attributes:
+      label: 遇到的问题
+      description: 你期望什么、实际发生了什么
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: 已尝试的步骤
+      placeholder: |
+        1. 执行了 …
+        2. 报错 …
+        3. 查过 …
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 环境信息
+      placeholder: "Windows 11 / Rust 1.98.0 / Node 22 / PostgreSQL 16 / Docker 29"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: 运行方式
+      options:
+        - 本地 cargo run + npm run dev
+        - Docker Compose
+        - Release 二进制 / 静态产物
+        - 其他
+    validations:
+      required: true

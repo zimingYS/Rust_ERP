@@ -1,0 +1,29 @@
+title: "[公告] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        用于**维护者发布**版本公告、规则变更或重要通知。
+        普通使用问题请发到 Q&A，新想法请发到 Ideas，缺陷请走 Issue。
+  - type: textarea
+    id: summary
+    attributes:
+      label: 公告摘要
+      description: 一两句话说明这次公告的内容
+      placeholder: "v1.0.1 发布，修复了依赖安全告警…"
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: 详细内容
+      description: 变更点、影响范围、需要大家做什么
+      render: markdown
+    validations:
+      required: true
+  - type: input
+    id: reference
+    attributes:
+      label: 关联链接
+      description: Release / PR / 文档链接（可选）

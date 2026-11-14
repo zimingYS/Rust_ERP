@@ -1,0 +1,37 @@
+# Git / 编辑器 / 本地助手数据
+.git
+.github
+.workbuddy
+.idea
+.vscode
+
+# 构建产物与依赖
+target
+**/target
+node_modules
+**/node_modules
+erp-frontend/dist
+dist
+dist-ssr
+
+# 日志与本地数据
+logs
+**/logs
+*.log
+*.dump
+*.db
+*.sqlite
+
+# 凭据（严禁进入构建上下文）
+.env
+.env.*
+!.env.example
+deploy/compose.env
+*.pem
+*.key
+*.p12
+
+# 文档（构建不需要，缩小上下文）
+docs
+readmes
+*.md

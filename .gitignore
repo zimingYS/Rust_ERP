@@ -40,3 +40,12 @@ Thumbs.db
 *.sql.gz
 *.sqlite
 *.db
+
+# ---------- 本地 AI 助手工作区（含个人笔记，不入库） ----------
+.workbuddy/
+
+# ---------- 本地 compose 变量（含口令，不入库） ----------
+deploy/compose.env
+
+# ---------- 本地 / CI 临时审计报告 ----------
+*-audit.json

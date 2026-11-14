@@ -1,0 +1,22 @@
+title = "Rust_ERP gitleaks allowlist"
+
+# 继承 gitleaks 默认规则；下面只排除「文档 / 示例中的占位值」，
+# 真实凭据一律不放行。修改本文件需 CODEOWNERS 审批。
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "占位口令、示例连接串与文档说明中的字面量"
+regexTarget = "line"
+regexes = [
+  '''your-secret-key''',
+  '''your_password''',
+  '''REPLACE_ME''',
+  '''change_me_before_use''',
+  '''换成新的强口令''',
+  '''新的强口令''',
+  '''<REDACTED>''',
+  '''postgres://postgres:your_password@''',
+  '''POSTGRES_PASSWORD=change_me_before_use''',
+  '''DATABASE_URL=postgres://postgres:REPLACE_ME@''',
+]

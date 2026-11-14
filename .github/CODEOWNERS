@@ -9,5 +9,19 @@
 /.github/               @zimingYS
 /.gitignore             @zimingYS
 /.gitattributes         @zimingYS
-/SECURITY.md            @zimingYS
+/.gitleaks.toml         @zimingYS
 /LICENSE                @zimingYS
+/CITATION.cff           @zimingYS
+
+# 文档与规范
+/docs/                  @zimingYS
+/readmes/               @zimingYS
+/README.md              @zimingYS
+
+# 容器与部署
+/Dockerfile             @zimingYS
+/docker-compose.yml     @zimingYS
+/.dockerignore          @zimingYS
+/deploy/                @zimingYS
+/erp-frontend/Dockerfile    @zimingYS
+/erp-frontend/nginx.conf    @zimingYS

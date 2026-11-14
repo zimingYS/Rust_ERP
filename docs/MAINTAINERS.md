@@ -1,252 +1,142 @@
-# 维护者手册：公开、分支保护与发版
+# 维护者手册
 
-本文件给仓库维护者使用，记录把 `Rust_ERP` 从私有仓库转为公开协作仓库的完整操作顺序。
-**顺序很重要**：先清洗 → 再公开 → 再设保护 → 最后发版。
+面向仓库所有者：仓库设置、分支保护、社区运营、回滚与后续发版。发版细节见 [RELEASING.md](RELEASING.md)，安全检查见 [SECURITY_AUDIT.md](SECURITY_AUDIT.md)。
 
-## 0. 当前状态
+## 1. 当前状态
 
 | 项 | 状态 |
 | --- | --- |
-| 本地工程化文件（治理文档、模板、CI、发版工作流、忽略规则） | ✅ 已落地 |
-| Git 历史中误提交的 `.env` | ✅ 已从全部提交中移除 |
-| 38 个未提交的 rustfmt 文件 | ✅ 已纳入发布提交 |
-| 版本对齐 `1.0.0` + 本地标签 `v1.0.0` | ✅ 已完成 |
-| 推送清洗后的 `master` 与 `v1.0.0` 到远端 | ✅ 已完成（仓库**仍为私有**） |
-| 轮换 PostgreSQL 数据库口令 | ⬜ **你来做，见 Step 0** |
-| 仓库公开 / 分支保护 / 发布 Release | ⬜ **你来做，见 Step 2 ~ 6** |
+| 默认分支 | `main`（由 `master` 重命名，本地 / 远端一致） |
+| 可见性 | **Public**（免费个人账号下，分支保护仅在公开仓库可用） |
+| Issues / Discussions | 均已开启，Discussion 分类模板在 `.github/DISCUSSION_TEMPLATE/` |
+| 分支保护 | `main` 经典保护规则，配置见 [§3](#3-分支保护规则) |
+| 许可证 | PolyForm Noncommercial 1.0.0，GitHub 显示 `Other`（非 OSI，预期行为） |
+| 第一个 Release | `v1.0.0` 标签已存在；Release 由维护者在网页端 Publish |
+| Git 历史 | 已重写清除误提交的 `.env`，逐提交验证无残留 |
+| Dependabot 首次批量 PR | 按维护者决定**保留**，含 sea-orm 2.x / Vite 8 等 major 升级，需自行评估 |
 
-> 免费版 GitHub 个人账号：**分支保护规则仅在公开仓库可用**，所以必须先执行 Step 4（公开），再执行 Step 5（保护）。两者之间不要推送任何敏感内容。
+> **公开后仍需处理**：轮换 PostgreSQL 口令、把 `JWT_SECRET` 改为环境变量注入、修复默认口令 `123456`。这是 [SECURITY_AUDIT.md](SECURITY_AUDIT.md) 的 P0 项，属业务源码改动，本轮未代为实施。
 
----
-
-## Step 0 · 轮换数据库口令（公开前必做）
-
-历史中的口令曾以明文形式存在，即使已清洗也应视为**已泄露**。先轮换，再公开。
-
-```sql
--- 在 psql 中执行
-ALTER USER postgres WITH PASSWORD '换成新的强口令';
-```
-
-然后修改本地 `.env`（该文件已被 `.gitignore` 忽略，不会提交）：
-
-```
-DATABASE_URL=postgres://postgres:REPLACE_ME@localhost:5432/erp_db
-```
-
-同时提醒：**`JWT_SECRET` 目前是源码常量**（见 [SECURITY.md](../SECURITY.md) S-01），修复前不要把服务暴露到公网。这是代码改动，本文档不代为实施。
-
----
-
-## Step 1 · 核对清洗结果
-
-在网页端打开仓库前，先本地确认历史里已无 `.env`：
-
-```bash
-git log --all --oneline -- .env        # 应无输出
-git ls-tree -r --name-only HEAD | grep -i '^\.env$'   # 应无输出
-git status --short                    # .env 不应出现在未跟踪列表（已被忽略）
-```
-
-远端确认：`https://github.com/zimingYS/Rust_ERP/commits/master` 逐个提交不应包含 `.env`，且标签列表里应有 `v1.0.0`。
-
----
-
-## Step 2 · 补全仓库信息（可在私有状态完成）
-
-`Settings → General`：
-
-| 字段 | 建议值 |
-| --- | --- |
-| Description | `基于 Rust (Axum + SeaORM) 与 Vue 3 的 ERP 系统，毕业设计作品 · 可分享、禁止商业使用` |
-| Website | 留空，或填 GitHub Pages / 演示地址 |
-| Topics | `erp` `rust` `axum` `sea-orm` `vue3` `vite` `postgresql` `graduation-project` |
-| Features | 勾选 Issues；**开启 Discussions**（建议） |
-| Pull Requests | 勾选 `Allow squash merging`；勾选 `Automatically delete head branches`；可关闭 `Allow merge commits` 以保持线性历史 |
-
-> 许可文件 `LICENSE` 是 PolyForm Noncommercial 1.0.0，GitHub 会识别为 `Other`，这是预期行为（非 OSI 许可证）。
-
----
-
-## Step 2.5 · 清理 Dependabot 首次批量 PR（公开前建议做）
-
-推送 `dependabot.yml` 后，GitHub 会立刻对存量依赖跑一次全量检查，本次一次性开了 **14 个 PR**（#1 ~ #14），其中含 `sea-orm 1 → 2`、`vite 7 → 8`、`jsonwebtoken 10 → 11`、`actions/checkout 4 → 7` 等**破坏性 major 升级**，CI 大概率为红。
-
-建议：**v1.0.0 发布前先全部关闭**，等发版完成再逐个评估或让 Dependabot 按新分组规则重新提出。
-
-- 网页端：`Pull requests` 列表逐个关闭；
-- 或走 API（在 Appendix A 准备好 `TOKEN` 后）：
-
-```bash
-for n in $(seq 1 14); do
-  curl -s -X PATCH -H "Authorization: Bearer $TOKEN" \
-    -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/zimingYS/Rust_ERP/pulls/$n" \
-    -d '{"state":"closed"}' -o /dev/null -w "PR #$n -> %{http_code}\n"
-done
-```
-
-配置里已把 minor / patch 升级**按生态分组合并**，后续每周只会来少量 grouped PR；major 升级仍单独开，方便逐个评估。
-
----
-
-## Step 3 · 等待首次 CI 全绿
-
-清洗后的提交已推送，`Actions → CI` 会自动跑一次。确认两个 job 都是绿色：
-
-- `backend`：fmt / check / test / clippy（报告模式）
-- `frontend`：npm ci / npm run build
-
-**这两个名字就是后面要勾选的"必需状态检查"**。没跑过一次的话，保护规则里搜不到它们。
-
----
-
-## Step 4 · 设为公开
-
-`Settings → General` 拉到最底部 `Danger Zone` → `Change visibility` → `Make public`。
-
-GitHub 会要求输入仓库全名确认。确认前再核对一次 Step 0 与 Step 1。
-
-**公开后立刻执行 Step 5，中间不要停。**
-
----
-
-## Step 5 · 保护主分支（核心）
-
-路径：`Settings → Branches → Add branch protection rule`
-（如果界面默认进入新版 Rulesets，找 `Add classic branch protection rule` 链接，下面按经典规则描述。）
-
-| 配置项 | 值 | 作用 |
-| --- | --- | --- |
-| Branch name pattern | `master` | 保护主分支 |
-| ✅ Require a pull request before merging | 开启 | **禁止所有人直接推送**，外部提交只能走 PR |
-| └ Required approvals | `1` | 至少 1 人批准 |
-| └ Dismiss stale pull request approvals | 开启 | 新提交会作废旧批准 |
-| └ Require review from Code Owners | 开启 | 由 `.github/CODEOWNERS` 指定的 `@zimingYS` 审批 |
-| └ Require approval of the most recent reviewable push | 建议开启 | 防止审批后夹带提交 |
-| ✅ Require status checks to pass before merging | 开启 | CI 不绿不能合并 |
-| └ Require branches to be up to date | 开启 | 合并前必须与 master 同步 |
-| └ 搜索并添加检查项 | `backend`、`frontend` | 对应 CI 的两个 job |
-| ✅ Require conversation resolution before merging | 开启 | 所有 review 对话必须解决 |
-| ✅ Require linear history | 可选（配合 squash 合并建议开启） | 保持历史整洁 |
-| ✅ Do not allow bypassing the above settings | 开启 | **管理员也受约束**（含 Include administrators 语义） |
-| ❌ Allow force pushes | **不勾** | 防止覆盖历史 |
-| ❌ Allow deletions | **不勾** | 防止误删主分支 |
-| Restrict who can push | 可选，填 `zimingYS` | 视账号套餐是否提供 |
-
-点 `Create` / `Save changes` 保存。
-
-### 验证保护是否生效
-
-```bash
-# 期望：远程拒绝（protected branch hook declined）
-git checkout master && git commit --allow-empty -m "test: 验证保护" && git push origin master
-```
-
-验证用的空提交记得本地 `git reset --hard HEAD~1` 撤销，**不要留在 master 上**。
-
-### 他人如何"能提交"
-
-- 仓库公开后，**任何人都可以 Fork 并开 PR**，无需加协作者、无需授予写权限 —— 这就是"允许提交但进不了主分支"的标准形态。
-- 贡献者提交后，CI 自动运行，你作为 Code Owner 审批合并。
-- 若确实需要给某人直接推分支的权限：`Settings → Collaborators → Add people`，给 `Write`；仍建议对方走 PR。
-
----
-
-## Step 6 · 发布第一版 Release
-
-`Releases → Draft a new release`：
+## 2. 仓库设置
 
 | 字段 | 值 |
 | --- | --- |
-| Choose a tag | 选择已存在的 `v1.0.0` |
-| Release title | `v1.0.0 — 首个公开发行版` |
-| Set as latest release | ✅ |
-| Set as pre-release | ❌（你选的是正式 v1.0.0） |
+| Description | `基于 Rust (Axum + SeaORM) 与 Vue 3 的 ERP 系统，毕业设计作品 · 可分享、禁止商业使用` |
+| Topics | `erp` `rust` `axum` `sea-orm` `vue3` `vite` `postgresql` `graduation-project` |
+| Features | Issues ✅、Discussions ✅、Wiki ❌ |
+| Pull Requests | squash merging ✅、自动删除来源分支 ✅ |
+| 默认分支 | `main` |
 
-描述可直接基于 `CHANGELOG.md` 的 `1.0.0` 段落，建议附加一句：
+复核：
 
-> 本项目采用 PolyForm Noncommercial 1.0.0：可自由学习与分享，禁止商业使用。
-> 当前版本存在已记录的安全限制（见 SECURITY.md），请勿部署到公网或用于生产环境。
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+  https://api.github.com/repos/zimingYS/Rust_ERP \
+  | jq '{private,default_branch,has_discussions,has_issues,description,topics,delete_branch_on_merge}'
+```
 
-点击 **Publish release**。随后 `Release Assets` 工作流会自动触发，构建并附加：
-`erp-backend-linux-x86_64-v1.0.0.tar.gz`、`erp-frontend-dist-v1.0.0.tar.gz`、`env.example`、`SHA256SUMS.txt`。
-在 `Actions` 里确认该工作流成功，再回到 Release 页面核对附件齐全。
+## 3. 分支保护规则
 
----
+`Settings → Branches → Classic branch protection rule`，pattern `main`。本轮通过 `PUT /repos/{owner}/{repo}/branches/main/protection` 创建，规则如下：
 
-## Step 7 · 可选收尾
+| 配置项 | 值 | 作用 |
+| --- | --- | --- |
+| Require a pull request before merging | ✅ | 禁止所有人直接推送 `main` |
+| └ Required approvals | `1` | 至少 1 人批准 |
+| └ Dismiss stale approvals | ✅ | 新提交作废旧批准 |
+| └ Require review from Code Owners | ✅ | 由 `.github/CODEOWNERS` 指定的 `@zimingYS` 审批 |
+| └ Require approval of most recent push | ✅ | 防止审批后夹带提交 |
+| Require status checks to pass | ✅ | CI 不绿不能合并 |
+| └ strict（分支保持最新） | ✅ | 合并前与 `main` 同步 |
+| └ contexts | `backend`、`frontend` | 对应 `ci.yml` 的两个 job |
+| Require conversation resolution | ✅ | review 对话必须解决 |
+| Do not allow bypassing the above settings | ✅ | **管理员同样受约束** |
+| Allow force pushes / deletions | ❌ | 防止覆盖历史 / 误删分支 |
+| Require linear history | ❌ | 当前用 squash 合并，暂不额外强制 |
+| Restrict who can push | 不设置 | 公开仓库中任何人可 Fork + 开 PR |
 
-### 标签体系（模板里已引用，建议建齐）
+### 他人如何「能提交但进不了主分支」
 
-`Issues → Labels → New label`：
+- 公开仓库中**任何人可 Fork 并开 PR**，无需授予写权限；保护规则挡住直推 `main`。
+- 贡献者 PR 自动触发 CI，Code Owner 审批后由维护者 squash 合并。
+- 若需要给某人直接推分支权限：`Settings → Collaborators → Add people`（Write），仍建议走 PR。
+
+### 验证保护生效
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+  https://api.github.com/repos/zimingYS/Rust_ERP/branches/main/protection | jq .
+```
+
+不要用 `git push` 做破坏性验证；如需验证，用空提交并立刻本地 `git reset --hard HEAD~1` 撤销。
+
+### 修改保护规则
+
+```bash
+curl -X PUT -H "Authorization: Bearer $TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  https://api.github.com/repos/zimingYS/Rust_ERP/branches/main/protection \
+  -d '{"required_status_checks":{"strict":true,"contexts":["backend","frontend"]},"enforce_admins":true,"required_pull_request_reviews":{"dismiss_stale_reviews":true,"require_code_owner_reviews":true,"required_approving_review_count":1,"require_last_push_approval":true},"restrictions":null,"required_linear_history":false,"allow_force_pushes":false,"allow_deletions":false,"required_conversation_resolution":true}'
+```
+
+> 若 CI job 改名，必须同步更新 `contexts`，否则 PR 会永远停在「等待状态检查」。
+
+## 4. GitHub Discussions
+
+Discussions 已开启，用于**使用咨询、设计讨论、想法交流**；缺陷与功能请求仍走 Issue 模板。
+
+| 分类 | 模板文件 | 用途 |
+| --- | --- | --- |
+| Announcements | `.github/DISCUSSION_TEMPLATE/announcements.yml` | 版本发布、规则变更公告 |
+| Ideas | `.github/DISCUSSION_TEMPLATE/ideas.yml` | 新想法与方案讨论 |
+| Q&A | `.github/DISCUSSION_TEMPLATE/q-a.yml` | 启动 / 部署 / 使用咨询 |
+
+维护动作：把 v1.0.0 的 Release 说明转成一则 Announcements 置顶帖，并在其中链接 [README.md](../README.md) 与 [文档索引](README.md)。`.github/ISSUE_TEMPLATE/config.yml` 已把咨询类流量导向 Discussions。
+
+## 5. 标签体系
+
+Issue / PR 模板引用的标签建议在 `Issues → Labels` 建齐：
 
 | 标签 | 颜色 | 用途 |
 | --- | --- | --- |
 | `bug` | `#d73a4a` | 缺陷 |
 | `enhancement` | `#a2eeef` | 功能建议 |
-| `triage` | `#fbca04` | 待分类 |
 | `documentation` | `#0075ca` | 文档 |
+| `triage` | `#fbca04` | 待分类 |
 | `good first issue` | `#7057ff` | 适合新贡献者 |
 | `help wanted` | `#008672` | 需要协助 |
 | `dependencies` | `#0366d6` | Dependabot 依赖升级 |
-| `backend` / `frontend` / `ci` | `#c5def5` / `#bfd4f2` / `#fef2c0` | 影响范围 |
+| `backend` / `frontend` / `ci` / `docker` | `#c5def5` / `#bfd4f2` / `#fef2c0` / `#0db7ed` | 影响范围 |
 | `security` | `#b60205` | 已公开的安全事项 |
 
-### 把 `master` 改名为 `main`（可选）
+## 6. Dependabot 策略
 
-`Settings → Branches` 的分支重命名按钮会自动更新默认分支、打开的 PR 与保护规则。
-改完后需同步修改：
-- `.github/workflows/ci.yml` 的 `branches: [master, main]`（已同时列出，可不改）
-- `.github/ISSUE_TEMPLATE/config.yml` 里的文档链接
-- 所有贡献者的本地远端跟踪分支：`git branch -m master main && git fetch origin && git branch -u origin/main main`
+`.github/dependabot.yml` 覆盖 `cargo` / `npm` / `github-actions` / `docker` 四个生态，minor + patch 按生态**分组**，major 单独开 PR 便于逐个评估。
 
-> **建议：v1.0.0 已按 `master` 发布，本轮先不改名**，等下一个版本再统一迁移，避免刚发版就制造混乱。
-
----
-
-## 附录 A · 想改主意用 API 一键完成
-
-本机已有具备 `repo` / `workflow` / `admin` 权限的凭据时，可用以下命令替代 Step 2/4/5/6（`OWNER=zimingYS`、`REPO=Rust_ERP`、`TOKEN` 自行准备）：
+- 首次全量检查会一次性开出大量 PR（含 major 破坏性升级），按维护者决定本轮**保留**，自行评估后合并或关闭。
+- 关闭批量 PR 的 API 示例：
 
 ```bash
-# 公开 + 仓库设置
-curl -X PATCH -H "Authorization: Bearer $TOKEN" \
-  -H "Accept: application/vnd.github+json" \
-  https://api.github.com/repos/zimingYS/Rust_ERP \
-  -d '{"private":false,"has_discussions":true,"delete_branch_on_merge":true,"allow_squash_merge":true}'
-
-# 分支保护
-curl -X PUT -H "Authorization: Bearer $TOKEN" \
-  -H "Accept: application/vnd.github+json" \
-  https://api.github.com/repos/zimingYS/Rust_ERP/branches/master/protection \
-  -d '{"required_status_checks":{"strict":true,"contexts":["backend","frontend"]},"enforce_admins":true,"required_pull_request_reviews":{"dismiss_stale_reviews":true,"require_code_owner_reviews":true,"required_approving_review_count":1},"restrictions":null,"required_linear_history":false,"allow_force_pushes":false,"allow_deletions":false,"required_conversation_resolution":true}'
-
-# 发布 Release
-curl -X POST -H "Authorization: Bearer $TOKEN" \
-  -H "Accept: application/vnd.github+json" \
-  https://api.github.com/repos/zimingYS/Rust_ERP/releases \
-  -d '{"tag_name":"v1.0.0","name":"v1.0.0 — 首个公开发行版","body":"见 CHANGELOG.md","draft":false,"prerelease":false}'
+for n in $(seq 1 14); do
+  curl -s -X PATCH -H "Authorization: Bearer $TOKEN" \
+    "https://api.github.com/repos/zimingYS/Rust_ERP/pulls/$n" \
+    -d '{"state":"closed"}' -o /dev/null -w "PR #$n -> %{http_code}\n"
+done
 ```
 
-注意：API 设置 `required_status_checks.contexts` 前，CI 仍需至少成功运行过一次，否则检查项不会被识别。
+- 依赖升级带来安全告警变化时，同步刷新 [SECURITY_AUDIT.md](SECURITY_AUDIT.md)。
 
----
+## 7. 后续发版
 
-## 附录 B · 后续发版流程
+见 [RELEASING.md](RELEASING.md)：版本号同步 → tag → GHCR 镜像 / Release 产物 → 可选 SSH 部署。
 
-1. 在 PR 中完成变更并通过保护规则合并到 `master`。
-2. 更新 `CHANGELOG.md`（`Unreleased` → 新版本段落）。
-3. 同步四处版本号：`Cargo.toml`、`erp-backend/Cargo.toml`、`erp-frontend/package.json`、`erp-frontend/package-lock.json`，并提交 `Cargo.lock`。
-4. 打标签并推送：`git tag -a v1.0.1 -m "..." && git push origin v1.0.1`。
-5. 在 Releases 页面基于该标签 Publish release，产物工作流自动附加构建文件。
-6. 若 CI job 改名，同步更新保护规则中的必需状态检查。
-
-## 附录 C · 回滚
+## 8. 回滚预案
 
 若公开后发现敏感信息残留：
 
-1. 立刻 `Settings → General → Danger Zone → Change visibility → Make private`（先止血）
-2. 轮换所有泄露的凭据
-3. 参考清洗脚本重写历史并强推（**强推前先临时关闭保护规则**）
-4. 重新确认无误后再公开，并恢复保护规则
+1. 立刻改回私有止血：`PATCH /repos/zimingYS/Rust_ERP` `{"private":true}`。
+2. **先轮换**所有可能泄露的凭据（数据库口令、JWT 密钥），再处理历史。
+3. 重写历史需强推：先临时关闭 `main` 保护规则的 `allow_force_pushes`，推完**立即恢复**。
+4. 重新确认无泄露后再公开，并复核保护规则仍完整。
+
+若误删 / 误改保护规则：按 [§3](#3-分支保护规则) 的 API 命令重建。

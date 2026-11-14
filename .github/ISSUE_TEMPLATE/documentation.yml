@@ -1,0 +1,41 @@
+name: "📖 文档问题"
+description: "报告文档缺失、过时、错误或难以理解"
+title: "[Docs] "
+labels: ["documentation", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        文档索引见 [docs/README.md](https://github.com/zimingYS/Rust_ERP/blob/main/docs/README.md)。
+        若只是看不懂怎么用，请优先发到 Discussions 的 Q&A。
+  - type: input
+    id: location
+    attributes:
+      label: 文档位置
+      description: 文件路径 + 章节标题，或页面 URL
+      placeholder: "docs/api.md §4.5 财务 / 报表 / 通知"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题描述
+      description: 哪里错了、与哪段代码不一致、或缺少什么内容
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: 建议修改（可选）
+      render: markdown
+    validations:
+      required: false
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 确认
+      options:
+        - label: 我已对照当前代码确认这不是我理解偏差
+          required: true
+        - label: 提交内容不含密钥、口令或个人信息
+          required: true

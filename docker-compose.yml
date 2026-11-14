@@ -1,0 +1,59 @@
+name: rust-erp
+
+# 变量来自 deploy/compose.env（复制自 compose.env.example），该文件已被忽略。
+# 启动：docker compose --env-file deploy/compose.env up -d --build
+#
+# 前置条件：请先按 docs/deployment.md §5.2 完成两处硬编码修改，
+# 否则 backend 只监听容器内回环地址、前端会请求访问者本机 127.0.0.1。
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-erp_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请在 deploy/compose.env 中设置 POSTGRES_PASSWORD}
+    volumes:
+      - erp_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-erp_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  backend:
+    # 本地用 --build 时按 build 构建；服务器上 docker compose pull 时按 image 拉取 GHCR 镜像
+    image: ghcr.io/${GHCR_OWNER:-zimingys}/rust_erp/erp-backend:${ERP_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # 容器内必须用服务名 postgres，不能用 localhost
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-erp_db}
+      RUST_LOG: ${RUST_LOG:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - backend_logs:/app/logs
+    # 不映射到宿主机：接口统一经 frontend 的 nginx 反代暴露
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/${GHCR_OWNER:-zimingys}/rust_erp/erp-frontend:${ERP_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: erp-frontend/Dockerfile
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  erp_pgdata:
+  backend_logs:

@@ -7,5 +7,5 @@ contact_links:
     url: "https://github.com/zimingYS/Rust_ERP/discussions"
     about: "启动部署问题、设计讨论、想法交流请发到 Discussions"
   - name: "📖 文档与贡献规范"
-    url: "https://github.com/zimingYS/Rust_ERP/blob/master/CONTRIBUTING.md"
-    about: "提交 PR 前请先阅读贡献指南与 PR 自检清单"
+    url: "https://github.com/zimingYS/Rust_ERP/blob/main/docs/README.md"
+    about: "文档索引：贡献指南、命名规范、部署说明、系统设计与 API 文档"
