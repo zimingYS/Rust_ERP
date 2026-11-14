@@ -31,7 +31,7 @@ ALTER USER postgres WITH PASSWORD '换成新的强口令';
 然后修改本地 `.env`（该文件已被 `.gitignore` 忽略，不会提交）：
 
 ```
-DATABASE_URL=postgres://postgres:新的强口令@localhost:5432/erp_db
+DATABASE_URL=postgres://postgres:REPLACE_ME@localhost:5432/erp_db
 ```
 
 同时提醒：**`JWT_SECRET` 目前是源码常量**（见 [SECURITY.md](../SECURITY.md) S-01），修复前不要把服务暴露到公网。这是代码改动，本文档不代为实施。
