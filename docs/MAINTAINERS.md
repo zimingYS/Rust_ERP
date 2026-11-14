@@ -68,6 +68,28 @@ git status --short                    # .env 不应出现在未跟踪列表（�
 
 ---
 
+## Step 2.5 · 清理 Dependabot 首次批量 PR（公开前建议做）
+
+推送 `dependabot.yml` 后，GitHub 会立刻对存量依赖跑一次全量检查，本次一次性开了 **14 个 PR**（#1 ~ #14），其中含 `sea-orm 1 → 2`、`vite 7 → 8`、`jsonwebtoken 10 → 11`、`actions/checkout 4 → 7` 等**破坏性 major 升级**，CI 大概率为红。
+
+建议：**v1.0.0 发布前先全部关闭**，等发版完成再逐个评估或让 Dependabot 按新分组规则重新提出。
+
+- 网页端：`Pull requests` 列表逐个关闭；
+- 或走 API（在 Appendix A 准备好 `TOKEN` 后）：
+
+```bash
+for n in $(seq 1 14); do
+  curl -s -X PATCH -H "Authorization: Bearer $TOKEN" \
+    -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/repos/zimingYS/Rust_ERP/pulls/$n" \
+    -d '{"state":"closed"}' -o /dev/null -w "PR #$n -> %{http_code}\n"
+done
+```
+
+配置里已把 minor / patch 升级**按生态分组合并**，后续每周只会来少量 grouped PR；major 升级仍单独开，方便逐个评估。
+
+---
+
 ## Step 3 · 等待首次 CI 全绿
 
 清洗后的提交已推送，`Actions → CI` 会自动跑一次。确认两个 job 都是绿色：

@@ -8,6 +8,12 @@ updates:
       time: "09:00"
       timezone: "Asia/Shanghai"
     open-pull-requests-limit: 5
+    # 把 minor / patch 合并成一个 PR，避免每个依赖一条噪声 PR；
+    # major 升级仍单独开 PR，便于逐个评估兼容性。
+    groups:
+      cargo-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
     labels:
       - "dependencies"
       - "backend"
@@ -20,6 +26,10 @@ updates:
       time: "09:00"
       timezone: "Asia/Shanghai"
     open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
     labels:
       - "dependencies"
       - "frontend"
@@ -29,6 +39,10 @@ updates:
     schedule:
       interval: "monthly"
       timezone: "Asia/Shanghai"
+    groups:
+      actions-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
     labels:
       - "dependencies"
       - "ci"
