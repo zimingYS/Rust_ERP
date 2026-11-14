@@ -5,7 +5,7 @@
 # 容器化前请按 docs/deployment.md §5.2 改为相对路径 /api 或读取 VITE_API_BASE_URL，
 # 否则浏览器会请求访问者自己的 127.0.0.1。
 
-FROM node:22-alpine AS builder
+FROM node:25-alpine AS builder
 WORKDIR /app
 
 COPY erp-frontend/package.json erp-frontend/package-lock.json ./
