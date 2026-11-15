@@ -37,15 +37,15 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 ## 3. 分支保护规则
 
-`Settings → Branches → Classic branch protection rule`，pattern `main`。本轮通过 `PUT /repos/{owner}/{repo}/branches/main/protection` 创建，规则如下：
+`Settings → Branches → Classic branch protection rule`，pattern `main`。本轮通过 `PUT /repos/{owner}/{repo}/branches/main/protection` 创建，2026-11-15 通过 `PATCH .../required_pull_request_reviews` 调整审批要求，当前规则如下：
 
 | 配置项 | 值 | 作用 |
 | --- | --- | --- |
 | Require a pull request before merging | ✅ | 禁止所有人直接推送 `main` |
-| └ Required approvals | `1` | 至少 1 人批准 |
-| └ Dismiss stale approvals | ✅ | 新提交作废旧批准 |
-| └ Require review from Code Owners | ✅ | 由 `.github/CODEOWNERS` 指定的 `@zimingYS` 审批 |
-| └ Require approval of most recent push | ✅ | 防止审批后夹带提交 |
+| └ Required approvals | `0` | **不要求人工审批**，见下方说明 |
+| └ Dismiss stale approvals | ✅ | 新提交作废旧批准（日后恢复审批数仍生效） |
+| └ Require review from Code Owners | ❌ | 已关闭；`.github/CODEOWNERS` 保留，用于自动请求审查与标注归属 |
+| └ Require approval of most recent push | ❌ | 已关闭，与「0 审批」保持一致 |
 | Require status checks to pass | ✅ | CI 不绿不能合并 |
 | └ strict（分支保持最新） | ✅ | 合并前与 `main` 同步 |
 | └ contexts | `backend`、`frontend` | 对应 `ci.yml` 的两个 job |
@@ -55,10 +55,14 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 | Require linear history | ❌ | 当前用 squash 合并，暂不额外强制 |
 | Restrict who can push | 不设置 | 公开仓库中任何人可 Fork + 开 PR |
 
+> **为什么是 0 审批**：GitHub 平台禁止作者批准自己的 PR（官方文档：`Pull request authors cannot approve their own pull requests`），classic 保护与 rulesets 均没有「允许自审批」开关。本仓库是个人仓库、唯一协作者即所有者本人，原先的「1 审批 + 强制 Code Owner + 最近推送须他人批准」会让**任何 PR 都无法合并**。改为 0 审批后，自己开的 PR 只要 CI 全绿即可合并；外部贡献者 PR 同样免审批，但仍只有维护者能点合并。若日后引入第二名协作者，可把审批数调回 `1` 并重新启用 Code Owner 审查。
+
+`main` 上另有一个生效中的 ruleset（`main`，id `27260969`）：PR 审批数同为 `0`，并包含线性历史、禁强推、Copilot 代码审查、CodeQL / code quality 等规则，管理员在 bypass 列表中。classic 保护与 ruleset 叠加生效，修改任一侧都要复核另一侧。
+
 ### 他人如何「能提交但进不了主分支」
 
 - 公开仓库中**任何人可 Fork 并开 PR**，无需授予写权限；保护规则挡住直推 `main`。
-- 贡献者 PR 自动触发 CI，Code Owner 审批后由维护者 squash 合并。
+- 贡献者 PR 自动触发 CI，**CI 全绿 + 对话解决后由维护者 squash 合并**（单人维护者仓库不要求人工审批）。
 - 若需要给某人直接推分支权限：`Settings → Collaborators → Add people`（Write），仍建议走 PR。
 
 ### 验证保护生效
@@ -72,13 +76,25 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 ### 修改保护规则
 
+只调整审批要求（推荐，其它保护项不动）：
+
+```bash
+curl -X PATCH -H "Authorization: Bearer $TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  https://api.github.com/repos/zimingYS/Rust_ERP/branches/main/protection/required_pull_request_reviews \
+  -d '{"dismiss_stale_reviews":true,"require_code_owner_reviews":false,"require_last_push_approval":false,"required_approving_review_count":0}'
+```
+
+完整重建（会覆盖全部保护项，谨慎使用）：
+
 ```bash
 curl -X PUT -H "Authorization: Bearer $TOKEN" \
   -H "Accept: application/vnd.github+json" \
   https://api.github.com/repos/zimingYS/Rust_ERP/branches/main/protection \
-  -d '{"required_status_checks":{"strict":true,"contexts":["backend","frontend"]},"enforce_admins":true,"required_pull_request_reviews":{"dismiss_stale_reviews":true,"require_code_owner_reviews":true,"required_approving_review_count":1,"require_last_push_approval":true},"restrictions":null,"required_linear_history":false,"allow_force_pushes":false,"allow_deletions":false,"required_conversation_resolution":true}'
+  -d '{"required_status_checks":{"strict":true,"contexts":["backend","frontend"]},"enforce_admins":true,"required_pull_request_reviews":{"dismiss_stale_reviews":true,"require_code_owner_reviews":false,"required_approving_review_count":0,"require_last_push_approval":false},"restrictions":null,"required_linear_history":false,"allow_force_pushes":false,"allow_deletions":false,"required_conversation_resolution":true}'
 ```
 
+> 恢复双人审查时把 `required_approving_review_count` 改回 `1`、`require_code_owner_reviews` / `require_last_push_approval` 改回 `true`；单人仓库这样做会重新死锁。
 > 若 CI job 改名，必须同步更新 `contexts`，否则 PR 会永远停在「等待状态检查」。
 
 ## 4. GitHub Discussions

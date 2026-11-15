@@ -123,7 +123,7 @@ flowchart TB
 | 安全门禁 | `security.yml`：密钥扫描、cargo-audit、npm audit、PR 依赖差异审查 |
 | 发布 | `release.yml` 附加二进制与 dist；`docker-publish.yml` 推送 GHCR 镜像并预留 SSH 部署 |
 | 依赖更新 | `dependabot.yml`：cargo / npm / github-actions / docker，minor+patch 分组 |
-| 主分支保护 | 强制 PR、1 审批 + Code Owner、CI 必过、禁强推与删除、约束管理员，见 [MAINTAINERS.md](MAINTAINERS.md) |
+| 主分支保护 | 强制 PR、0 审批（单人维护者仓库免人工审批）、CI 必过、禁强推与删除、约束管理员，见 [MAINTAINERS.md](MAINTAINERS.md) |
 
 ## 9. 已知架构约束与演进方向
 

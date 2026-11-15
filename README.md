@@ -85,7 +85,7 @@ Rust_ERP/
 1. Fork 并基于 `main` 建分支（`feat/xxx`、`fix/xxx`、`docs/xxx`）
 2. 本地跑通自检（见 [贡献指南](docs/CONTRIBUTING.md)）
 3. 提交 PR，说明改动与验证方式，关联对应 Issue
-4. 等待 `backend` / `frontend` 两项 CI 全绿 + 至少 1 位 Code Owner 审批
+4. 等待 `backend` / `frontend` 两项 CI 全绿、所有 review 对话解决（单人维护者仓库不要求人工审批）
 5. 由维护者合并
 
 使用咨询与方案讨论请发到 [Discussions](https://github.com/zimingYS/Rust_ERP/discussions)。安全漏洞**不要**开公开 Issue，请走 [安全政策](docs/SECURITY.md) 中的私有通道。

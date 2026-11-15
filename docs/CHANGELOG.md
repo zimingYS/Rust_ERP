@@ -26,6 +26,7 @@
 - `security.yml` 的 `npm-audit` 由报告模式升级为 **high+ 阻断合并**；`rust-audit` 因剩余 3 条存量保持报告模式
 - `.gitignore` 增加 `.workbuddy/` 与 `deploy/compose.env`
 - `docs/SECURITY_AUDIT.md` 按修复后复跑数据重写
+- **分支保护**：`main` 审批数改为 `0`，关闭强制 Code Owner 与「最近推送须他人批准」——GitHub 禁止作者批准自己的 PR，单人维护者仓库原配置会导致任何 PR 都无法合并；PR 强制、strict CI、对话解决、禁强推与删除、管理员同受约束全部保留，相关文档与模板同步
 
 ### 已知限制
 

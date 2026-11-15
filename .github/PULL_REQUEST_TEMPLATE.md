@@ -36,4 +36,4 @@ Closes #
 
 ---
 
-> 主分支受保护：PR 需至少 1 位 Code Owner 批准、`backend` 与 `frontend` 两项 CI 全绿、所有 review 对话已解决。禁止直接推送主分支。
+> 主分支受保护：PR 需 `backend` 与 `frontend` 两项 CI 全绿、所有 review 对话已解决；单人维护者仓库不要求人工审批（GitHub 禁止作者批准自己的 PR）。禁止直接推送主分支。
