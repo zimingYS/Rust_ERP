@@ -39,7 +39,7 @@ grep -A2 -E '^name = "(ERP|erp-backend)"' Cargo.lock
 
 ```mermaid
 flowchart LR
-    A["PR 合入 main<br/>（保护规则：CI 全绿 + Code Owner）"] --> B["更新 CHANGELOG<br/>+ 同步 8 处版本号"]
+    A["PR 合入 main<br/>（保护规则：CI 全绿 + 对话解决）"] --> B["更新 CHANGELOG<br/>+ 同步 8 处版本号"]
     B --> C["git tag -a vX.Y.Z<br/>git push origin vX.Y.Z"]
     C --> D1["docker-publish.yml<br/>构建并推 GHCR 镜像"]
     C --> D2["可选 SSH 部署<br/>vars.DEPLOY_ENABLED=true"]
