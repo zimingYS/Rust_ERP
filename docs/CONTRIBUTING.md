@@ -62,7 +62,7 @@ cd erp-frontend && npm ci && npm run build
 1. 在 Fork 中完成开发并跑通自检。
 2. 开 PR，**base 必须是 `zimingYS/Rust_ERP:main`**，填写 PR 模板并关联 Issue。
 3. 等待 CI：`backend`、`frontend` 两项状态检查必须全绿。
-4. 主分支保护规则要求：至少 1 位 Code Owner 批准、所有 review 对话已解决、分支与主分支保持同步；管理员同样受约束。
+4. 主分支保护规则要求：`backend` / `frontend` 两项 CI 全绿、所有 review 对话已解决、分支与主分支保持同步；**单人维护者仓库不要求人工审批**（GitHub 禁止作者批准自己的 PR），管理员同样受约束。
 5. 由维护者用 squash / merge 方式合并，合并后自动删除来源分支。
 6. 若你的 PR 涉及 CI、发版或许可配置，请在描述中额外说明理由。
 
